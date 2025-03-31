@@ -36,7 +36,14 @@ classifiers = [
 ]
 dependencies = [
     "pytest-asyncio>=0.24.0",
+    "pytest-random-order>=1.1.1",
     "pytest>=6.2.0",
+    "ruff>=0.11.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.3.0",
 ]
 
 [tool.setuptools]
@@ -46,7 +53,7 @@ packages = [
 include-package-data = true
 
 [project.urls]
-Repository = "https://github.com/TCherici/pytest-mimic"
+Repository = "https://github.com/clockworks-data/pytest-mimic"
 
 [project.entry-points.pytest11]
 pytest-mimic = "src.pytest_mimic.plugin"
@@ -54,7 +61,42 @@ pytest-mimic = "src.pytest_mimic.plugin"
 [pytest]
 pytester_example_dir = "."
 
+[dependency-groups]
+dev = [
+    "pytest-asyncio>=0.24.0",
+    "pytest-random-order>=1.1.1",
+]
+
 [tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "session"
 mimic_functions = [
     "tests.example_module:example_function_to_mimic"
 ]
+# Optional: specify custom location for mimic cache directory
+# mimic_vault_path = ".mimic_vault"
+
+[tool.ruff]
+target-version = "py38"
+line-length = 100
+lint.select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+    "W",   # pycodestyle warnings
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "C4",  # flake8-comprehensions
+    "B",   # flake8-bugbear
+    "PT",  # flake8-pytest-style
+]
+lint.ignore = []
+exclude = [
+    ".git",
+    ".ruff_cache",
+    "__pycache__",
+    "build",
+    "dist",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["pytest_mimic"]

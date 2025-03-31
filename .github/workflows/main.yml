@@ -1,29 +1,30 @@
-name: main
+name: Run checks
 
 on:
   push:
     branches:
       - main
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+      - "[0-9]+.[0-9]+.[0-9]+rc[0-9]+"
+
   pull_request:
     branches:
       - main
 
 jobs:
-  test:
+  tox:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        include:
-          - python-version: ['3.8', '3.9', '3.10', '3.11', '3.12', 'pypy-3.8']
+        python: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
-
+          python-version: ${{ matrix.python }}
       - name: Install tox
         run: pip install tox
-
-      - name: Test
+      - name: Run tox
         run: tox -e py

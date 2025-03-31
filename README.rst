@@ -10,24 +10,29 @@ pytest-mimic
     :target: https://pypi.org/project/pytest-mimic
     :alt: Python versions
 
-.. image:: https://github.com/TCherici/pytest-mimic/actions/workflows/main.yml/badge.svg
-    :target: https://github.com/TCherici/pytest-mimic/actions/workflows/main.yml
+.. image:: https://github.com/clockworks-data/pytest-mimic/actions/workflows/main.yml/badge.svg
+    :target: https://github.com/clockworks-data/pytest-mimic/actions/workflows/main.yml
     :alt: See Build Status on GitHub Actions
 
-Easily record function calls while testing
+Are you bored with hand-mocking expensive function calls?
+Or wasting time recreating model outputs and
+ending up with brittle tests?
 
-----
+Have your mocks ever fooled you, running successful tests whilst silently ignoring unexpected changes in their inputs?
 
-This `pytest`_ plugin was generated with `Cookiecutter`_ along with `@hackebrot`_'s `cookiecutter-pytest-plugin`_ template.
+`pytest-mimic` is a pytest plugin to record and replay expensive function calls for better, faster and cleaner unit testing.
 
+Use cases:
+ - testing a pipeline that runs some ML model which require beefy hardware to run
+ - testing functions that would make calls to some external API
+ - testing code that requires access to an X-server which is not available in CI
 
 Features
 --------
 
 * Record and replay function calls during tests
-* Supports async functions
+* Supports sync and async functions
 * Easy integration with pytest
-* Three usage patterns: fixture-based, configuration-based, and early mimicking via conftest.py
 * Deterministic hashing of function calls for reliable replays
 
 
@@ -37,6 +42,10 @@ Requirements
 * Python >= 3.8
 * pytest >= 6.2.0
 * pytest-asyncio >= 0.24.0
+
+----
+
+This `pytest`_ plugin was generated with `Cookiecutter`_ along with `@hackebrot`_'s `cookiecutter-pytest-plugin`_ template.
 
 
 Installation
@@ -50,33 +59,12 @@ You can install "pytest-mimic" via `pip`_ from `PyPI`_::
 Usage
 -----
 
-There are three ways to use pytest-mimic:
-
-1. Using the mimic fixture (for functions defined in the test file):
-
-.. code-block:: python
-
-    import pytest
-    from my_module import my_api_function
-
-    @pytest.mark.asyncio
-    async def test_api_call(mimic):
-        # Apply mimicking to the function
-        mimic(my_api_function)
-        
-        # Call the function - it will be recorded or replayed
-        result = await my_api_function(arg1, arg2)
-        
-        assert result["some_key"] == "expected_value"
-
-2. Configuration-based mimicking (recommended):
-
 Configure the functions to mimic in your ``pyproject.toml`` file:
 
 .. code-block:: toml
 
     # pyproject.toml
-    [pytest]
+    [tool.pytest.ini_options]
     mimic_functions = [
         "my_module:my_api_function",
         "my_module:another_function"
@@ -92,33 +80,9 @@ Or in ``pytest.ini`` file:
         my_module:my_api_function
         my_module:another_function
 
-3. Early mimicking via conftest.py (legacy, deprecated):
-
-.. code-block:: python
-
-    # conftest.py
-    from my_module import my_api_function, another_function
-
-    # Define functions to mimic (deprecated approach)
-    MIMIC_FUNCTIONS = [
-        my_api_function,
-        another_function
-    ]
-
-Then in your tests:
-
-.. code-block:: python
-
-    # test_example.py
-    import pytest
-    from my_module import my_api_function
-
-    @pytest.mark.asyncio
-    async def test_api_call():
-        # The function is already mimicked before this test runs
-        result = await my_api_function(arg1, arg2)
-        
-        assert result["some_key"] == "expected_value"
+Run tests once with the --mimic-record flag (`pytest --mimic-record`) to run the mimicked functions
+ and store their outputs.
+All subsequent test runs will return the mimicked functions' output directly.
 
 To record function calls, run pytest with the ``--mimic-record`` flag::
 
@@ -127,6 +91,32 @@ To record function calls, run pytest with the ``--mimic-record`` flag::
 To replay previously recorded function calls, run pytest without the flag::
 
     $ pytest
+
+Storage Considerations
+~~~~~~~~~~~~~~~~~~~~~
+
+The mimic vault directory (``.mimic_vault`` by default) contains pickle files that can be large, especially when recording complex API responses. For optimal storage and version control:
+
+1. **Git LFS**: Use `Git Large File Storage (LFS) <https://git-lfs.github.com/>`_ to efficiently handle these files:
+
+   .. code-block:: bash
+
+       # Install Git LFS
+       $ git lfs install
+       
+       # Track pickle files in your mimic vault
+       $ git lfs track ".mimic_vault/**/*.pkl"
+       
+       # Make sure .gitattributes is committed
+       $ git add .gitattributes
+       
+2. **Custom Storage Location**: You can specify a custom location for the mimic vault:
+
+   .. code-block:: toml
+   
+       # pyproject.toml
+       [tool.pytest.ini_options]
+       mimic_vault_path = "path/to/mimic_storage"
 
 Contributing
 ------------
@@ -151,7 +141,7 @@ If you encounter any problems, please `file an issue`_ along with a detailed des
 .. _`GNU GPL v3.0`: https://www.gnu.org/licenses/gpl-3.0.txt
 .. _`Apache Software License 2.0`: https://www.apache.org/licenses/LICENSE-2.0
 .. _`cookiecutter-pytest-plugin`: https://github.com/pytest-dev/cookiecutter-pytest-plugin
-.. _`file an issue`: https://github.com/TCherici/pytest-mimic/issues
+.. _`file an issue`: https://github.com/clockworks-data/pytest-mimic/issues
 .. _`pytest`: https://github.com/pytest-dev/pytest
 .. _`tox`: https://tox.readthedocs.io/en/latest/
 .. _`pip`: https://pypi.org/project/pip/
