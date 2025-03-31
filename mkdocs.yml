@@ -1,0 +1,10 @@
+site_name: pytest-mimic
+site_description: Easily record function calls while testing
+site_author: Teo Cherici
+
+theme: readthedocs
+
+repo_url: https://github.com/TCherici/pytest-mimic
+
+pages:
+- Home: index.md

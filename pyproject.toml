@@ -1,0 +1,60 @@
+[build-system]
+requires = [
+  "setuptools>=61.0.0",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pytest-mimic"
+description = "Easily record function calls while testing"
+version = "0.1.0"
+readme = "README.rst"
+requires-python = ">=3.8"
+authors = [
+    { name = "Teo Cherici", email = "teo.cherici@clockworks.co" },
+]
+maintainers = [
+    { name = "Teo Cherici", email = "teo.cherici@clockworks.co" },
+]
+license = {file = "LICENSE"}
+classifiers = [
+    "Framework :: Pytest",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Testing",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "License :: OSI Approved :: MIT License",
+]
+dependencies = [
+    "pytest-asyncio>=0.24.0",
+    "pytest>=6.2.0",
+]
+
+[tool.setuptools]
+packages = [
+  "src.pytest_mimic",
+]
+include-package-data = true
+
+[project.urls]
+Repository = "https://github.com/TCherici/pytest-mimic"
+
+[project.entry-points.pytest11]
+pytest-mimic = "src.pytest_mimic.plugin"
+
+[pytest]
+pytester_example_dir = "."
+
+[tool.pytest.ini_options]
+mimic_functions = [
+    "tests.example_module:example_function_to_mimic"
+]
