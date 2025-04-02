@@ -11,7 +11,6 @@ from functools import wraps
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-# Configure logger
 logger = logging.getLogger("pytest_mimic")
 
 # Global state
@@ -98,34 +97,34 @@ def mimic_sync_func_call(func: Callable, *args, **kwargs) -> Any:
 
 def compute_hash(func: Callable, args: tuple, kwargs: dict) -> str:
     """Compute a deterministic hash for a function call."""
-    md5 = hashlib.md5()
+    sha256 = hashlib.sha256()
 
     # Hash function identity (module + name)
     module_name = inspect.getmodule(func).__name__
     func_name = func.__name__
-    md5.update(f"{module_name}.{func_name}".encode())
+    sha256.update(f"{module_name}.{func_name}".encode())
 
     # Hash positional arguments using pickle
     for arg in args:
         try:
             pickled_arg = pickle.dumps(arg)
-            md5.update(pickled_arg)
+            sha256.update(pickled_arg)
         except (pickle.PickleError, TypeError):
             # Fallback if object can't be pickled
-            md5.update(str(arg).encode("utf-8"))
+            sha256.update(str(arg).encode("utf-8"))
 
     # Hash keyword arguments (sorted by key for determinism)
     for key in sorted(kwargs.keys()):
-        md5.update(key.encode("utf-8"))
+        sha256.update(key.encode("utf-8"))
         try:
             # Use pickle to get a more accurate representation
             pickled_value = pickle.dumps(kwargs[key])
-            md5.update(pickled_value)
+            sha256.update(pickled_value)
         except (pickle.PickleError, TypeError):
             # Fallback if object can't be pickled
-            md5.update(str(kwargs[key]).encode("utf-8"))
+            sha256.update(str(kwargs[key]).encode("utf-8"))
 
-    hash_key = md5.hexdigest()
+    hash_key = sha256.hexdigest()
     logger.debug(f"Mimic: function {func.__name__} with inputs {args} and {kwargs}"
                  f" generated hash {hash_key}")
 
@@ -137,7 +136,7 @@ def load_stored_result(hash_key: str) -> Any:
     global _accessed_hashes
     # Track which hashes are accessed during this test run
     _accessed_hashes.add(hash_key)
-    
+
     pickle_file = get_model_cache_path(hash_key)
 
     if not pickle_file.exists():
@@ -153,7 +152,7 @@ def save_func_result(hash_key: str, result: Any) -> None:
     global _accessed_hashes
     # Track this hash as it's being created in this test run
     _accessed_hashes.add(hash_key)
-    
+
     # Ensure the cache directory exists
     cache_dir = get_cache_dir()
     cache_dir.mkdir(exist_ok=True, parents=True)
@@ -181,38 +180,38 @@ def clear_vault() -> None:
 
 def get_unused_recordings() -> list[str]:
     """Get all unused function call recordings.
-    
+
     Returns a list of unused hash keys.
     """
     global _accessed_hashes
     cache_dir = get_cache_dir()
     if not cache_dir.exists():
         return []
-    
+
     unused_hashes = []
     for cache_file in cache_dir.iterdir():
         if cache_file.suffix == '.pkl':
             hash_key = cache_file.stem
             if hash_key not in _accessed_hashes:
                 unused_hashes.append(hash_key)
-    
+
     return unused_hashes
 
 
 def clear_unused_recordings() -> int:
     """Clear all unused function call recordings.
-    
+
     Returns the number of removed recordings.
     """
     unused_hashes = get_unused_recordings()
     cache_dir = get_cache_dir()
-    
+
     removed_count = 0
     for hash_key in unused_hashes:
         cache_file = cache_dir / f"{hash_key}.pkl"
         cache_file.unlink(missing_ok=True)
         removed_count += 1
-    
+
     return removed_count
 
 
@@ -257,7 +256,7 @@ def _import_function_from_string(import_path, pytest_config_root_path):
     try:
         if ':' not in import_path:
             raise ValueError(f"Invalid import path format: {import_path}."
-                             f" Expected 'module:function'")
+                             f" Expected 'package.module:function'")
 
         module_path, func_name = import_path.strip().split(':', 1)
 

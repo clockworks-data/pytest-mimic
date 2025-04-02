@@ -94,7 +94,7 @@ class TestMimicManager:
         assert hash1 != hash4
 
         # Different functions should produce different hashes
-        hash5 = mimic_manager.compute_hash(dummy_func_2, (1, 2), {})
+        hash5 = mimic_manager.compute_hash(sync_dummy_func, (1, 2), {"c": 3})
         assert hash1 != hash5
 
     def test_clear_vault(self):
@@ -105,7 +105,6 @@ class TestMimicManager:
         # Create some data
         mimic_manager.mimic(async_dummy_func)
 
-        # Should not raise an exception
         mimic_manager.clear_vault()
 
     @pytest.mark.asyncio
@@ -113,47 +112,47 @@ class TestMimicManager:
         """Test clearing unused recordings."""
         # Set record mode and create files in the vault
         os.environ["MIMIC_RECORD"] = "1"
-        
+
         # Patch and call the functions to create recordings
         mimic_manager.mimic(async_dummy_func)
         mimic_manager.mimic(sync_dummy_func)
-        
+
         sync_dummy_func(5, b=3)
         sync_dummy_func(5, b=4)
         await async_dummy_func(0, 1)
         await async_dummy_func(0, 2)
 
-        # Reset accessed hashes to simulate a fresh test run 
+        # Reset accessed hashes to simulate a fresh test run
         mimic_manager._accessed_hashes.clear()
-        
+
         # Access only one of the recordings
         sync_dummy_func(5, b=3)
-        
+
         # The other recording should be considered unused
         removed = mimic_manager.clear_unused_recordings()
         assert removed == 3
-        
+
     @pytest.mark.asyncio
     async def test_get_unused_recordings(self):
         """Test getting unused recordings."""
         # Set record mode and create files in the vault
         os.environ["MIMIC_RECORD"] = "1"
-        
+
         # Patch and call the functions to create recordings
         mimic_manager.mimic(async_dummy_func)
         mimic_manager.mimic(sync_dummy_func)
-        
+
         # Record function calls with different args
         sync_dummy_func(5, b=3)
         sync_dummy_func(10, b=20)
         await async_dummy_func(1, b=2)
-        
-        # Reset accessed hashes to simulate a fresh test run 
+
+        # Reset accessed hashes to simulate a fresh test run
         mimic_manager._accessed_hashes.clear()
-        
+
         # Access only one of the recordings
         sync_dummy_func(5, b=3)
-        
+
         # Get unused recordings - should include the other recordings
         unused = mimic_manager.get_unused_recordings()
         assert len(unused) == 2
