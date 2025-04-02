@@ -22,28 +22,20 @@ Have your mocks ever fooled you, running successful tests whilst silently ignori
 
 `pytest-mimic` is a pytest plugin to record and replay expensive function calls for better, faster and cleaner unit testing.
 
-Use cases:
- - testing a pipeline that runs some ML model which require beefy hardware to run
- - testing functions that would make calls to some external API
- - testing code that requires access to an X-server which is not available in CI
+Use cases
+--------
+
+- testing a pipeline that runs some ML model which require beefy hardware to run
+- testing functions that would make calls to some external API
+- testing code that requires access to an X-server which is not available in CI
 
 Features
 --------
 
 * Record and replay function calls during tests
 * Supports sync and async functions
-* Easy integration with pytest
-* Deterministic hashing of function calls for reliable replays
+* Deterministic hashing of function calls & pickling of function outputs
 
-
-Requirements
-------------
-
-* Python >= 3.8
-* pytest >= 6.2.0
-* pytest-asyncio >= 0.24.0
-
-----
 
 This `pytest`_ plugin was generated with `Cookiecutter`_ along with `@hackebrot`_'s `cookiecutter-pytest-plugin`_ template.
 
@@ -80,6 +72,7 @@ Or in ``pytest.ini`` file:
         my_module:my_api_function
         my_module:another_function
 
+
 Run tests once with the --mimic-record flag (`pytest --mimic-record`) to run the mimicked functions
  and store their outputs.
 All subsequent test runs will return the mimicked functions' output directly.
@@ -91,6 +84,18 @@ To record function calls, run pytest with the ``--mimic-record`` flag::
 To replay previously recorded function calls, run pytest without the flag::
 
     $ pytest
+
+To clean up unused recordings after a test run, use the ``--mimic-clear-unused`` flag::
+
+    $ pytest --mimic-clear-unused
+
+This will remove any recordings in the vault that weren't accessed during the test run, helping keep your vault clean and reducing its size.
+
+To fail the test run if any recordings weren't used, use the ``--mimic-fail-on-unused`` flag::
+
+    $ pytest --mimic-fail-on-unused
+
+This is useful in CI pipelines to detect when recordings have become stale or are no longer needed.
 
 Storage Considerations
 ~~~~~~~~~~~~~~~~~~~~~

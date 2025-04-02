@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import importlib
 import inspect
+import logging
 import os
 import pickle
 import sys
@@ -10,8 +11,12 @@ from functools import wraps
 from pathlib import Path
 from typing import Any, Callable, Optional
 
+# Configure logger
+logger = logging.getLogger("pytest_mimic")
+
 # Global state
 _cache_dir: Optional[Path] = None
+_accessed_hashes: set = set()
 
 
 def set_cache_dir(path: Path):
@@ -56,7 +61,6 @@ def mimic(func: Callable) -> None:
 async def mimic_async_func_call(func: Callable, *args, **kwargs) -> Any:
     """Handle an async function call, returning a stored result if available."""
     hash_key = compute_hash(func, args, kwargs)
-    print(f"Hash: {hash_key}")
 
     try:
         return load_stored_result(hash_key)
@@ -76,7 +80,6 @@ async def mimic_async_func_call(func: Callable, *args, **kwargs) -> Any:
 def mimic_sync_func_call(func: Callable, *args, **kwargs) -> Any:
     """Handle a synchronous function call, returning a stored result if available."""
     hash_key = compute_hash(func, args, kwargs)
-    print(f"Hash: {hash_key}")
 
     try:
         return load_stored_result(hash_key)
@@ -122,11 +125,19 @@ def compute_hash(func: Callable, args: tuple, kwargs: dict) -> str:
             # Fallback if object can't be pickled
             md5.update(str(kwargs[key]).encode("utf-8"))
 
-    return md5.hexdigest()
+    hash_key = md5.hexdigest()
+    logger.debug(f"Mimic: function {func.__name__} with inputs {args} and {kwargs}"
+                 f" generated hash {hash_key}")
+
+    return hash_key
 
 
 def load_stored_result(hash_key: str) -> Any:
     """Load a saved result from the cache."""
+    global _accessed_hashes
+    # Track which hashes are accessed during this test run
+    _accessed_hashes.add(hash_key)
+    
     pickle_file = get_model_cache_path(hash_key)
 
     if not pickle_file.exists():
@@ -139,13 +150,17 @@ def load_stored_result(hash_key: str) -> Any:
 
 def save_func_result(hash_key: str, result: Any) -> None:
     """Save a result to the cache."""
+    global _accessed_hashes
+    # Track this hash as it's being created in this test run
+    _accessed_hashes.add(hash_key)
+    
     # Ensure the cache directory exists
     cache_dir = get_cache_dir()
     cache_dir.mkdir(exist_ok=True, parents=True)
 
     pickle_file = get_model_cache_path(hash_key)
     with open(pickle_file, "wb") as f:
-        print(f"Saving pickle {hash_key} to {pickle_file}")
+        logger.debug(f"Mimic: saving to {pickle_file}")
         pickle.dump(result, f)
 
 
@@ -162,6 +177,43 @@ def clear_vault() -> None:
     for cache in cache_dir.iterdir():
         cache.unlink(missing_ok=True)
     cache_dir.rmdir()
+
+
+def get_unused_recordings() -> list[str]:
+    """Get all unused function call recordings.
+    
+    Returns a list of unused hash keys.
+    """
+    global _accessed_hashes
+    cache_dir = get_cache_dir()
+    if not cache_dir.exists():
+        return []
+    
+    unused_hashes = []
+    for cache_file in cache_dir.iterdir():
+        if cache_file.suffix == '.pkl':
+            hash_key = cache_file.stem
+            if hash_key not in _accessed_hashes:
+                unused_hashes.append(hash_key)
+    
+    return unused_hashes
+
+
+def clear_unused_recordings() -> int:
+    """Clear all unused function call recordings.
+    
+    Returns the number of removed recordings.
+    """
+    unused_hashes = get_unused_recordings()
+    cache_dir = get_cache_dir()
+    
+    removed_count = 0
+    for hash_key in unused_hashes:
+        cache_file = cache_dir / f"{hash_key}.pkl"
+        cache_file.unlink(missing_ok=True)
+        removed_count += 1
+    
+    return removed_count
 
 
 def _mimic_all_functions(config):

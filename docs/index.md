@@ -96,6 +96,18 @@ async def test_api_call():
   pytest
   ```
 
+- To clean up unused recordings from the vault, run pytest with the `--mimic-clear-unused` flag:
+  ```
+  pytest --mimic-clear-unused
+  ```
+  This will remove any recordings that weren't accessed during the test run, helping keep your vault clean and reducing storage requirements.
+
+- To fail the test run if any recordings weren't used, run pytest with the `--mimic-fail-on-unused` flag:
+  ```
+  pytest --mimic-fail-on-unused
+  ```
+  This is useful in CI pipelines to detect when recordings have become stale or are no longer needed.
+
 ## How It Works
 
 1. When run with `--mimic-record`, actual function calls are made and results are stored

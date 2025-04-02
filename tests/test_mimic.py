@@ -1,4 +1,8 @@
 def test_mimic_across_runs(pytester):
+    pytester.makeini("""
+        [pytest]
+        asyncio_default_fixture_loop_scope = "session"
+    """)
     pytester.makeconftest(
         """
         from src.pytest_mimic.plugin import _mimic_all_functions
