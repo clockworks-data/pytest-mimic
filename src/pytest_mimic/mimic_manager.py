@@ -13,7 +13,6 @@ from typing import Any, Callable, Optional
 
 logger = logging.getLogger("pytest_mimic")
 
-# Global state
 _cache_dir: Optional[Path] = None
 _accessed_hashes: set = set()
 
@@ -30,6 +29,30 @@ def get_cache_dir() -> Path:
     return _cache_dir
 
 
+def try_load_result_from_cache(func, args, kwargs) -> tuple[Optional[object], Optional[str]]:
+    """
+        Tries to load function call from mimic vault. If it fails and is in mimic-record mode return
+         the function call hash key instead to allow for the storage of the function output
+    """
+    hash_key = compute_hash(func, args, kwargs)
+
+    global _accessed_hashes
+    # Track which hashes are accessed during this test run
+    _accessed_hashes.add(hash_key)
+    pickle_file = get_model_cache_path(hash_key)
+    record_mode = os.environ.get("MIMIC_RECORD", "0") == "1"
+    # Load the result using pickle
+    if pickle_file.exists():
+        with open(pickle_file, "rb") as f:
+            return pickle.load(f), None
+
+    if not record_mode:
+        raise RuntimeError(f"Missing mimic-recorded result for function call "
+                           f"{func.__name__} with hash {hash_key}.\n"
+                           f"Run pytest with --mimic-record to record responses.")
+    return None, hash_key
+
+
 def mimic(func: Callable) -> None:
     """
     Mimic a function call, replacing it with a version that returns recorded results.
@@ -39,60 +62,35 @@ def mimic(func: Callable) -> None:
     func_module = inspect.getmodule(func)
     original_func = func
     func_name = func.__name__
-    is_async = asyncio.iscoroutinefunction(original_func)
 
-    if is_async:
+    if asyncio.iscoroutinefunction(original_func):
         @wraps(original_func)
         async def async_wrapper(*args, **kwargs):
-            return await mimic_async_func_call(original_func, *args, **kwargs)
+            result, hash_key = try_load_result_from_cache(original_func, args, kwargs)
 
-        # Replace the function with our async wrapper
+            if hash_key:
+                # Call the original function
+                result = await original_func(*args, **kwargs)
+                # Save the result for future use
+                save_func_result(hash_key, result)
+
+            return result
+
         setattr(func_module, func_name, async_wrapper)
     else:
         @wraps(original_func)
         def sync_wrapper(*args, **kwargs):
-            return mimic_sync_func_call(original_func, *args, **kwargs)
+            result, hash_key = try_load_result_from_cache(original_func, args, kwargs)
 
-        # Replace the function with our sync wrapper
+            if hash_key:
+                # Call the original function
+                result = original_func(*args, **kwargs)
+                # Save the result for future use
+                save_func_result(hash_key, result)
+
+            return result
+
         setattr(func_module, func_name, sync_wrapper)
-
-
-async def mimic_async_func_call(func: Callable, *args, **kwargs) -> Any:
-    """Handle an async function call, returning a stored result if available."""
-    hash_key = compute_hash(func, args, kwargs)
-
-    try:
-        return load_stored_result(hash_key)
-    except FileNotFoundError as err:
-        record_mode = os.environ.get("MIMIC_RECORD", "0") == "1"
-        if not record_mode:
-            raise RuntimeError(f"Missing mimic-recorded result for function call "
-                               f"{func.__name__} with hash {hash_key}.\n"
-                               f"Run pytest with --mimic-record to record responses.") from err
-        # Call the original function
-        result = await func(*args, **kwargs)
-        # Save the result for future use
-        save_func_result(hash_key, result)
-        return result
-
-
-def mimic_sync_func_call(func: Callable, *args, **kwargs) -> Any:
-    """Handle a synchronous function call, returning a stored result if available."""
-    hash_key = compute_hash(func, args, kwargs)
-
-    try:
-        return load_stored_result(hash_key)
-    except FileNotFoundError as err:
-        record_mode = os.environ.get("MIMIC_RECORD", "0") == "1"
-        if not record_mode:
-            raise RuntimeError(f"Missing mimic-recorded result for function call "
-                               f"{func.__name__} with hash {hash_key}.\n"
-                               f"Run pytest with --mimic-record to record responses.") from err
-        # Call the original function
-        result = func(*args, **kwargs)
-        # Save the result for future use
-        save_func_result(hash_key, result)
-        return result
 
 
 def compute_hash(func: Callable, args: tuple, kwargs: dict) -> str:
