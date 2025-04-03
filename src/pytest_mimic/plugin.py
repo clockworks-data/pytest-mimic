@@ -86,4 +86,3 @@ def pytest_unconfigure(config):
                            f"Unused hashes: {', '.join(display_hashes)}{additional}\n"
                            f"Use --mimic-clear-unused to remove them"
                            f" or fix your tests to use them.")
-
