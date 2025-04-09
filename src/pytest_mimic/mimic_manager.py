@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import hashlib
 import importlib
 import inspect
@@ -6,10 +7,11 @@ import logging
 import os
 import pickle
 import sys
+import types
 import warnings
 from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Union
 
 logger = logging.getLogger("pytest_mimic")
 
@@ -53,44 +55,97 @@ def try_load_result_from_cache(func, args, kwargs) -> tuple[Optional[object], Op
     return None, hash_key
 
 
-def mimic(func: Callable) -> None:
+def mimic_location(func_location: str) -> None:
     """
     Mimic a function call, replacing it with a version that returns recorded results.
 
     This is the main entry point for mimicking a function. Works with both sync and async functions.
     """
-    func_module = inspect.getmodule(func)
+    parent_obj, func = _import_function_from_string(func_location)
+
+    _mimic(parent_obj, func)
+
+
+@contextlib.contextmanager
+def mimic(func: callable, classmethod_warning: bool = True):
     original_func = func
-    func_name = func.__name__
 
-    if asyncio.iscoroutinefunction(original_func):
-        @wraps(original_func)
-        async def async_wrapper(*args, **kwargs):
-            result, hash_key = try_load_result_from_cache(original_func, args, kwargs)
+    if inspect.ismethod(func):
+        if not isinstance(func.__self__, type):
+            raise ValueError(f"It is not possible to mimic methods of instantiated objects. \n"
+                             f"Mimic the class definition of the method instead:\n"
+                             f"`with mimic(MyClass.method):` instead of "
+                             f"`with mimic(MyClass().method):`")
 
-            if hash_key:
-                # Call the original function
-                result = await original_func(*args, **kwargs)
-                # Save the result for future use
-                save_func_result(hash_key, result)
+        if classmethod_warning:
+            warnings.warn(f"Mimicking classmethod {func.__qualname__}.\n"
+                          f"Mimicking cannot check for class-level mutations caused"
+                          f" by calling this method.\n"
+                          f"If you're sure that this classmethod does not mutate its class"
+                          f" you can use\n"
+                          f"\tmimic(<your_classmethod>, classmethod_warning=False)\n"
+                          f"to suppress this warning.")
+        func_parent = func.__self__
 
-            return result
-
-        setattr(func_module, func_name, async_wrapper)
+    elif '.' in func.__qualname__:
+        #  static methods are not recognized as methods,
+        #   but we need to get their parent class nonetheless
+        func_parent = importlib.import_module(func.__module__)
+        for child in func.__qualname__.split('.')[:-1]:
+            func_parent = getattr(func_parent, child)
     else:
-        @wraps(original_func)
-        def sync_wrapper(*args, **kwargs):
-            result, hash_key = try_load_result_from_cache(original_func, args, kwargs)
+        func_parent = importlib.import_module(func.__module__)
+
+    _mimic(func_parent, func)
+    yield
+    setattr(func_parent, original_func.__name__, func)
+
+
+def _mimic(parent_obj, func):
+    if asyncio.iscoroutinefunction(func):
+        @wraps(func)
+        async def async_wrapper(*args, **kwargs):
+            result, hash_key = try_load_result_from_cache(func, args, kwargs)
 
             if hash_key:
                 # Call the original function
-                result = original_func(*args, **kwargs)
+                result = await func(*args, **kwargs)
+
+                # Check that calling the function didn't mutate inputs
+                new_hash_key = compute_hash(func, args, kwargs)
+                if new_hash_key != hash_key:
+                    raise RuntimeError(f"Running function {func} has mutated its inputs.\n"
+                                       f"Mimicking shouldn't be used on functions or methods"
+                                       f" that mutate its input (or parent object)")
+
                 # Save the result for future use
                 save_func_result(hash_key, result)
 
             return result
 
-        setattr(func_module, func_name, sync_wrapper)
+        setattr(parent_obj, func.__name__, async_wrapper)
+    else:
+        @wraps(func)
+        def sync_wrapper(*args, **kwargs):
+            result, hash_key = try_load_result_from_cache(func, args, kwargs)
+
+            if hash_key:
+                # Call the original function
+                result = func(*args, **kwargs)
+
+                # Check that calling the function didn't mutate inputs
+                new_hash_key = compute_hash(func, args, kwargs)
+                if new_hash_key != hash_key:
+                    raise RuntimeError(f"Running function {func} has mutated its inputs.\n"
+                                       f"Mimicking shouldn't be used on functions or methods"
+                                       f" that mutate its input (or parent object)")
+
+                # Save the result for future use
+                save_func_result(hash_key, result)
+
+            return result
+
+        setattr(parent_obj, func.__name__, sync_wrapper)
 
 
 def compute_hash(func: Callable, args: tuple, kwargs: dict) -> str:
@@ -127,22 +182,6 @@ def compute_hash(func: Callable, args: tuple, kwargs: dict) -> str:
                  f" generated hash {hash_key}")
 
     return hash_key
-
-
-def load_stored_result(hash_key: str) -> Any:
-    """Load a saved result from the cache."""
-    global _accessed_hashes
-    # Track which hashes are accessed during this test run
-    _accessed_hashes.add(hash_key)
-
-    pickle_file = get_model_cache_path(hash_key)
-
-    if not pickle_file.exists():
-        raise FileNotFoundError(f"No cached result for hash {hash_key}")
-
-    # Load the result using pickle
-    with open(pickle_file, "rb") as f:
-        return pickle.load(f)
 
 
 def save_func_result(hash_key: str, result: Any) -> None:
@@ -213,43 +252,28 @@ def clear_unused_recordings() -> int:
     return removed_count
 
 
-def _mimic_all_functions(config):
+def _initialize_mimic(config):
     """Initialize the mimic system and return the cache directory path."""
     if config.getini('mimic_vault_path'):
-        cache_dir = Path(config.getini('mimic_vault_path')).absolute()
+        cache_dir = Path(config.getini('mimic_vault_path'))
+        if not cache_dir.is_absolute():
+            cache_dir = config.rootpath.absolute() / cache_dir
     else:
         cache_dir = config.rootpath.absolute() / ".mimic_vault"
 
     set_cache_dir(cache_dir)
 
+    # Add rootpath to path to find
+    sys.path.append(str(config.rootpath))
     # Apply mimicking to all functions from ini configuration
-    functions_to_mimic = _get_functions_to_mimic(config)
-    for func in functions_to_mimic:
-        mimic(func)
+    for function_to_mimic in config.getini('mimic_functions'):
+        mimic_location(function_to_mimic)
 
 
-def _get_functions_to_mimic(config):
-    """Get functions to mimic from configuration.
-
-    Reads functions from mimic_functions ini configuration
-    """
-    functions_to_mimic = []
-
-    # Get functions from ini configuration
-    mimic_function_imports = config.getini('mimic_functions')
-    for import_path in mimic_function_imports:
-        func = _import_function_from_string(import_path, config.rootpath)
-        if func is not None:
-            functions_to_mimic.append(func)
-
-    return functions_to_mimic
-
-
-def _import_function_from_string(import_path, pytest_config_root_path):
+def _import_function_from_string(import_path) -> tuple[object, Callable]:
     """Import a function from an import path string.
 
-    Format: module.submodule:function_name
-    Example: tests.example_module:example_function_to_mimic
+    Format: module.submodule:function_name or module.submodule:Class_name.method_name
     """
     try:
         if ':' not in import_path:
@@ -258,17 +282,18 @@ def _import_function_from_string(import_path, pytest_config_root_path):
 
         module_path, func_name = import_path.strip().split(':', 1)
 
-        sys.path.append(str(pytest_config_root_path))
-
         # Import the module
         module = importlib.import_module(module_path)
 
-        # Get the function from the module
-        if not hasattr(module, func_name):
-            raise ValueError(f"Function '{func_name}' not found in module '{module_path}'")
-
-        return getattr(module, func_name)
+        path = func_name.split('.')
+        return getattr_nested(module, path[:-1]), getattr_nested(module, path)
 
     except (ImportError, AttributeError, ValueError) as e:
-        warnings.warn(f"Failed to import function from '{import_path}': {e}", stacklevel=2)
-        return None
+        raise ImportError(f"Failed to import function from '{import_path}'") from e
+
+
+def getattr_nested(base_obj, path: list[str]):
+    if len(path) == 0:
+        return base_obj
+    else:
+        return getattr(getattr_nested(base_obj, path[:-1]), path[-1])

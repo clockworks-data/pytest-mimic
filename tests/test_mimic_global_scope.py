@@ -9,6 +9,7 @@ from tests.example_module import example_function_to_mimic
 async def test_mimicking_at_global_level():
     os.environ["MIMIC_RECORD"] = "0"
     with pytest.raises(RuntimeError):
+        # this function should be mimicked from the pyproject.toml
         await example_function_to_mimic(1, 2)
 
     os.environ["MIMIC_RECORD"] = "1"

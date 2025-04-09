@@ -5,10 +5,10 @@ def test_mimic_across_runs(pytester):
     """)
     pytester.makeconftest(
         """
-        from src.pytest_mimic.plugin import _mimic_all_functions
+        from src.pytest_mimic.plugin import _initialize_mimic
 
         def pytest_configure(config):
-            _mimic_all_functions(config)
+            _initialize_mimic(config)
 
     """
     )
@@ -26,16 +26,16 @@ def test_mimic_across_runs(pytester):
 
         @pytest.mark.asyncio
         async def test_mimic_async_func():
-            mimic(async_func_to_mimic)
+            with mimic(async_func_to_mimic):
 
-            result = await async_func_to_mimic(5, b=3)
+                result = await async_func_to_mimic(5, b=3)
 
             assert result['result'] == 8
 
         def test_mimic_sync_func():
-            mimic(sync_func_to_mimic)
+            with mimic(sync_func_to_mimic):
 
-            result = sync_func_to_mimic(5, b=3)
+                result = sync_func_to_mimic(5, b=3)
 
             assert result['result'] == 8
         """
@@ -57,5 +57,4 @@ def test_mimic_across_runs(pytester):
 
     # Both tests should pass with replay
     assert results.parseoutcomes()['passed'] == 2
-
 

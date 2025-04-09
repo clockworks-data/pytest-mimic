@@ -5,13 +5,13 @@ from pathlib import Path
 import pytest
 
 from src.pytest_mimic import mimic_manager
-from src.pytest_mimic.plugin import _mimic_all_functions
+from src.pytest_mimic.plugin import _initialize_mimic
 
 pytest_plugins = ["pytester"]
 
 
 def pytest_configure(config):
-    _mimic_all_functions(config)
+    _initialize_mimic(config)
 
 
 @pytest.fixture(autouse=True)
