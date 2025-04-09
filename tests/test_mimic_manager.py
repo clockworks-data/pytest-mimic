@@ -89,30 +89,6 @@ class TestMimicManager:
         assert hash1 != hash5
 
     @pytest.mark.asyncio
-    async def test_clear_vault(self, tmp_mimic_vault):
-        """Test clearing the vault."""
-
-        # Verify that no mimics are in the vault
-        cache_files = list(tmp_mimic_vault.glob("**/*.pkl"))
-        assert len(cache_files) == 0
-
-        # Set record mode
-        os.environ["MIMIC_RECORD"] = "1"
-
-        with mimic_manager.mimic(async_dummy_func):
-            await async_dummy_func(5, b=3)
-
-        # Verify file was created
-        cache_files = list(tmp_mimic_vault.glob("**/*.pkl"))
-        assert len(cache_files) > 0
-
-        mimic_manager.clear_vault()
-
-        # Verify that file was removed
-        cache_files = list(tmp_mimic_vault.glob("**/*.pkl"))
-        assert len(cache_files) == 0
-
-    @pytest.mark.asyncio
     async def test_clear_unused_recordings(self):
         """Test clearing unused recordings."""
         # Set record mode and create files in the vault

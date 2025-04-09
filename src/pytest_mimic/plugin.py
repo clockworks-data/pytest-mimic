@@ -1,7 +1,7 @@
 import logging
 import os
 
-from src.pytest_mimic.mimic_manager import _initialize_mimic
+from .mimic_manager import _initialize_mimic, get_unused_recordings
 
 logger = logging.getLogger("pytest_mimic")
 
@@ -64,7 +64,6 @@ def pytest_configure(config):
 
 def pytest_unconfigure(config):
     """Clean up after all tests have run."""
-    from src.pytest_mimic.mimic_manager import get_unused_recordings
 
     unused_recordings = get_unused_recordings()
     unused_count = len(unused_recordings)

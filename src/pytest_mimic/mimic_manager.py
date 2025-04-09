@@ -205,16 +205,6 @@ def get_model_cache_path(hash_key: str) -> Path:
     return get_cache_dir() / f"{hash_key}.pkl"
 
 
-def clear_vault() -> None:
-    """Clear all stored function call results."""
-    cache_dir = get_cache_dir()
-    if not cache_dir.exists():
-        return
-    for cache in cache_dir.iterdir():
-        cache.unlink(missing_ok=True)
-    cache_dir.rmdir()
-
-
 def get_unused_recordings() -> list[str]:
     """Get all unused function call recordings.
 

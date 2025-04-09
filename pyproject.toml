@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 name = "pytest-mimic"
 description = "Easily record function calls while testing"
 version = "0.1.0"
-readme = "README.rst"
+readme = "README.md"
 requires-python = ">=3.9"
 authors = [
     { name = "Teo Cherici", email = "teo.cherici@clockworks.co" },
@@ -38,17 +38,11 @@ dependencies = [
     "pytest>=6.2.0",
 ]
 
-[tool.setuptools]
-packages = [
-  "src.pytest_mimic",
-]
-include-package-data = true
-
 [project.urls]
 Repository = "https://github.com/clockworks-data/pytest-mimic"
 
 [project.entry-points.pytest11]
-pytest-mimic = "src.pytest_mimic.plugin"
+pytest-mimic = "pytest_mimic.plugin"
 
 [pytest]
 pytester_example_dir = "."

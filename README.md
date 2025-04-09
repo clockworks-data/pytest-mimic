@@ -6,27 +6,55 @@
 
 ---
 
-Are you bored with hand-mocking expensive function calls?
-Or wasting time recreating model outputs and
-ending up with brittle tests?
+`pytest-mimic` is a pytest plugin to record and replay expensive function or method calls for faster and cleaner unit testing.
 
-Have your mocks ever fooled you, running successful tests whilst silently ignoring unexpected changes in their inputs?
+## Usage
+Suppose you want to test the workings of a function that calls some expensive function.
+You can mimic the expensive function like this:
 
-`pytest-mimic` is a pytest plugin to record and replay expensive function calls for better, faster and cleaner unit testing.
+```python
+def test_function_to_test():
+    with pytest_mimic.mimic(expensive_function):
+       result = function_to_test()
+    assert result == 1
+```
 
-## Use cases
+Run `pytest --mimic-record` once to run tests calling the mimicked functions and storing their outputs.
 
-- testing a pipeline that runs some ML model which require beefy hardware to run
-- testing functions that would make calls to some external API
-- testing code that requires access to an X-server which is not available in CI
+Afterward all `pytest` runs will utilize the stored output, as long as the function and inputs don't change.
 
-## Features
+### Mimic functions globally
+Instead of mimicking expensive functions or methods for every test you write, you can configure the functions to mimic in your `pyproject.toml` file:
 
-* Record and replay function calls during tests
-* Supports sync and async functions
-* Deterministic hashing of function calls & pickling of function outputs
+```toml
+# pyproject.toml
+[tool.pytest.ini_options]
+mimic_functions = [
+    "some_module:expensive_function",
+    "some_module:another_function",
+    "some_module.sub_module:SomeClass.method"
+]
+```
 
-This [pytest](https://github.com/pytest-dev/pytest) plugin was generated with [Cookiecutter](https://github.com/audreyr/cookiecutter) along with [@hackebrot](https://github.com/hackebrot)'s [cookiecutter-pytest-plugin](https://github.com/pytest-dev/cookiecutter-pytest-plugin) template.
+or in `pytest.ini` file:
+
+```ini
+# pytest.ini
+[pytest]
+mimic_functions =
+    some_module:expensive_function
+    some_module:another_function
+    some_module.sub_module:SomeClass.method
+```
+
+This will ensure that all calls to those functions or methods will be mimicked.
+
+### CLI options
+
+- `pytest --mimic-record`: record function calls
+- `pytest --mimic-clear-unused`: after the run completes, clean up all mimic recordings that were not used
+- `pytest --mimic-fail-on-unused`: raises an error if any mimic recording was left unused. Useful for CI
+
 
 ## Installation
 
@@ -36,65 +64,11 @@ You can install "pytest-mimic" via [pip](https://pypi.org/project/pip/) from [Py
 $ pip install pytest-mimic
 ```
 
-## Usage
-
-Configure the functions to mimic in your `pyproject.toml` file:
-
-```toml
-# pyproject.toml
-[tool.pytest.ini_options]
-mimic_functions = [
-    "my_module:my_api_function",
-    "my_module:another_function"
-]
-```
-
-Or in `pytest.ini` file:
-
-```ini
-# pytest.ini
-[pytest]
-mimic_functions =
-    my_module:my_api_function
-    my_module:another_function
-```
-
-Run tests once with the --mimic-record flag (`pytest --mimic-record`) to run the mimicked functions and store their outputs.
-All subsequent test runs will return the mimicked functions' output directly.
-
-To record function calls, run pytest with the `--mimic-record` flag:
-
-```
-$ pytest --mimic-record
-```
-
-To replay previously recorded function calls, run pytest without the flag:
-
-```
-$ pytest
-```
-
-To clean up unused recordings after a test run, use the `--mimic-clear-unused` flag:
-
-```
-$ pytest --mimic-clear-unused
-```
-
-This will remove any recordings in the vault that weren't accessed during the test run, helping keep your vault clean and reducing its size.
-
-To fail the test run if any recordings weren't used, use the `--mimic-fail-on-unused` flag:
-
-```
-$ pytest --mimic-fail-on-unused
-```
-
-This is useful in CI pipelines to detect when recordings have become stale or are no longer needed.
-
 ## Storage Considerations
 
-The mimic vault directory (`.mimic_vault` by default) contains pickle files that can be large, especially when recording complex API responses. For optimal storage and version control:
+The mimic vault directory (`project_root/.mimic_vault` by default) can grow to contain a large amount of data depending on the amount of mimicked calls and size of outputs.
 
-1. **Git LFS**: Use [Git Large File Storage (LFS)](https://git-lfs.github.com/) to efficiently handle these files:
+Consider using something like [Git Large File Storage (LFS)](https://git-lfs.github.com/) to efficiently handle these files:
 
    ```bash
    # Install Git LFS
@@ -106,14 +80,7 @@ The mimic vault directory (`.mimic_vault` by default) contains pickle files that
    # Make sure .gitattributes is committed
    $ git add .gitattributes
    ```
-   
-2. **Custom Storage Location**: You can specify a custom location for the mimic vault:
 
-   ```toml
-   # pyproject.toml
-   [tool.pytest.ini_options]
-   mimic_vault_path = "path/to/mimic_storage"
-   ```
 
 ## Contributing
 
@@ -122,6 +89,8 @@ Contributions are very welcome. Tests can be run with [tox](https://tox.readthed
 ## License
 
 Distributed under the terms of the [MIT](https://opensource.org/licenses/MIT) license, "pytest-mimic" is free and open source software
+
+This [pytest](https://github.com/pytest-dev/pytest) plugin was generated with [Cookiecutter](https://github.com/audreyr/cookiecutter) along with [@hackebrot](https://github.com/hackebrot)'s [cookiecutter-pytest-plugin](https://github.com/pytest-dev/cookiecutter-pytest-plugin) template.
 
 ## Issues
 
