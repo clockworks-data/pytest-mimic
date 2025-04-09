@@ -64,7 +64,7 @@ mimic_functions = [
 # mimic_vault_path = ".mimic_vault"
 
 [tool.ruff]
-target-version = "py38"
+target-version = "py39"
 line-length = 100
 lint.select = [
     "E",   # pycodestyle errors
@@ -77,6 +77,7 @@ lint.select = [
     "B",   # flake8-bugbear
     "PT",  # flake8-pytest-style
 ]
+
 lint.ignore = []
 exclude = [
     ".git",

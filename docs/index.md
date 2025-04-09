@@ -1,117 +1,46 @@
-# Welcome to pytest-mimic
+# pytest-mimic
 
-Easily record function calls while testing
+[![PyPI version](https://img.shields.io/pypi/v/pytest-mimic.svg)](https://pypi.org/project/pytest-mimic)
+[![Python versions](https://img.shields.io/pypi/pyversions/pytest-mimic.svg)](https://pypi.org/project/pytest-mimic)
+[![See Build Status on GitHub Actions](https://github.com/clockworks-data/pytest-mimic/actions/workflows/main.yml/badge.svg)](https://github.com/clockworks-data/pytest-mimic/actions/workflows/main.yml)
 
-## Overview
+---
 
-pytest-mimic is a pytest plugin that allows you to record and replay function calls, particularly useful for testing code that makes external API calls or other network requests without hitting the external service in most test runs.
+`pytest-mimic` is a pytest plugin to record and replay expensive function or method calls for faster and cleaner unit testing. It enables you to:
 
-## Installation
+- Speed up tests that rely on expensive operations (API calls, database queries, etc.)
+- Create more reliable tests that don't depend on external services
+- Reduce complexity in your test setup
 
-```bash
-pip install pytest-mimic
-```
-
-## Basic Usage
-
-### Method 1: Using the mimic fixture
+## Quick Start
 
 ```python
-# test_example.py
-import pytest
-from my_module import my_api_function
+import pytest_mimic
 
-@pytest.mark.asyncio
-async def test_api_call(mimic):
-    # Apply mimicking to the function
-    mimic(my_api_function)
-    
-    # Call the function - it will be recorded or replayed
-    result = await my_api_function(arg1, arg2)
-    
-    assert result["some_key"] == "expected_value"
+def test_function_to_test():
+    # Wrap the expensive function in a mimic context manager
+    with pytest_mimic.mimic(expensive_function):
+       result = function_to_test()  # This function calls expensive_function internally
+    assert result == expected_value
 ```
 
-### Method 2: Configuration-based mimicking (recommended)
+1. Run your tests with recording enabled: `pytest --mimic-record`
+2. For subsequent runs, just use `pytest` to utilize the stored outputs
 
-Configure the functions to mimic in your `pyproject.toml` or `pytest.ini` file:
+## Key Features
 
-```toml
-# pyproject.toml
-[pytest]
-mimic_functions = [
-    "my_module:my_api_function",
-    "my_module:another_function"
-]
-```
+- Record and replay function calls with identical input/output behavior
+- Support for both synchronous and asynchronous functions
+- Works with regular functions, class methods, static methods, and instance methods
+- Global configuration to mimic functions throughout your test suite
+- CLI options for managing recorded function calls
+- Detects and prevents issues with functions that mutate their inputs
 
-Or in pytest.ini:
+## Documentation
 
-```ini
-# pytest.ini
-[pytest]
-mimic_functions =
-    my_module:my_api_function
-    my_module:another_function
-```
+This documentation provides comprehensive information about using `pytest-mimic`:
 
-### Method 3: Early mimicking in conftest.py (legacy, deprecated)
-
-```python
-# conftest.py
-from my_module import my_api_function, another_function
-
-# Define functions to mimic - these will be mimicked early during pytest configuration
-# Note: This method is deprecated and will be removed in a future version
-MIMIC_FUNCTIONS = [
-    my_api_function,
-    another_function
-]
-```
-
-Then in your tests, you can directly use the functions:
-
-```python
-# test_example.py
-import pytest
-from my_module import my_api_function
-
-@pytest.mark.asyncio
-async def test_api_call():
-    # The function is already mimicked before this test runs
-    result = await my_api_function(arg1, arg2)
-    
-    assert result["some_key"] == "expected_value"
-```
-
-## Recording vs Replaying
-
-- To record function calls, run pytest with the `--mimic-record` flag:
-  ```
-  pytest --mimic-record
-  ```
-
-- To replay previously recorded function calls, run pytest without the flag:
-  ```
-  pytest
-  ```
-
-- To clean up unused recordings from the vault, run pytest with the `--mimic-clear-unused` flag:
-  ```
-  pytest --mimic-clear-unused
-  ```
-  This will remove any recordings that weren't accessed during the test run, helping keep your vault clean and reducing storage requirements.
-
-- To fail the test run if any recordings weren't used, run pytest with the `--mimic-fail-on-unused` flag:
-  ```
-  pytest --mimic-fail-on-unused
-  ```
-  This is useful in CI pipelines to detect when recordings have become stale or are no longer needed.
-
-## How It Works
-
-1. When run with `--mimic-record`, actual function calls are made and results are stored
-2. When run without the flag, function calls are intercepted and previously recorded results are returned
-3. Function calls are hashed based on the function name, module, and arguments
-
-This allows you to run your tests against real APIs once to record the responses, then run subsequent tests against the recorded data for speed and reliability.
+- [Usage Guide](usage.md): Basic usage instructions
+- [Advanced Features](advanced.md): Working with class methods, async functions, and more
+- [API Reference](api.md): Complete API documentation
+- [Examples](examples.md): Example usage in different scenarios

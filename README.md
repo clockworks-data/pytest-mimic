@@ -6,25 +6,56 @@
 
 ---
 
-`pytest-mimic` is a pytest plugin to record and replay expensive function or method calls for faster and cleaner unit testing.
+`pytest-mimic` is a pytest plugin to record and replay expensive function or method calls for faster and cleaner unit testing. It enables you to:
 
-## Usage
-Suppose you want to test the workings of a function that calls some expensive function.
-You can mimic the expensive function like this:
+- Speed up tests that rely on expensive operations (API calls, database queries, etc.)
+- Create more reliable tests that don't depend on external services
+- Reduce complexity in your test setup
+
+## Quick Start
 
 ```python
+import pytest_mimic
+
 def test_function_to_test():
+    # Wrap the expensive function in a mimic context manager
     with pytest_mimic.mimic(expensive_function):
-       result = function_to_test()
-    assert result == 1
+       result = function_to_test()  # This function calls expensive_function internally
+    assert result == expected_value
 ```
 
-Run `pytest --mimic-record` once to run tests calling the mimicked functions and storing their outputs.
+1. Run your tests with recording enabled: `pytest --mimic-record`
+2. For subsequent runs, just use `pytest` to utilize the stored outputs
 
-Afterward all `pytest` runs will utilize the stored output, as long as the function and inputs don't change.
+## Key Features
 
-### Mimic functions globally
-Instead of mimicking expensive functions or methods for every test you write, you can configure the functions to mimic in your `pyproject.toml` file:
+- Record and replay function calls with identical input/output behavior
+- Support for both synchronous and asynchronous functions
+- Works with regular functions, class methods, static methods, and instance methods
+- Global configuration to mimic functions throughout your test suite
+- CLI options for managing recorded function calls
+- Detects and prevents issues with functions that mutate their inputs
+
+## Installation
+
+You can install `pytest-mimic` via pip:
+
+```bash
+pip install pytest-mimic
+```
+
+## Documentation
+
+For detailed documentation, visit [https://clockworks-data.github.io/pytest-mimic/](https://clockworks-data.github.io/pytest-mimic/) or check the `docs/` directory.
+
+- [Usage Guide](https://clockworks-data.github.io/pytest-mimic/usage/): Basic usage instructions
+- [Advanced Features](https://clockworks-data.github.io/pytest-mimic/advanced/): Working with class methods, async functions, and more
+- [API Reference](https://clockworks-data.github.io/pytest-mimic/api/): Complete API documentation
+- [Examples](https://clockworks-data.github.io/pytest-mimic/examples/): Example usage in different scenarios
+
+## Global Configuration
+
+Configure functions to be mimicked globally in your project configuration:
 
 ```toml
 # pyproject.toml
@@ -36,61 +67,34 @@ mimic_functions = [
 ]
 ```
 
-or in `pytest.ini` file:
+## CLI Options
 
-```ini
-# pytest.ini
-[pytest]
-mimic_functions =
-    some_module:expensive_function
-    some_module:another_function
-    some_module.sub_module:SomeClass.method
-```
-
-This will ensure that all calls to those functions or methods will be mimicked.
-
-### CLI options
-
-- `pytest --mimic-record`: record function calls
-- `pytest --mimic-clear-unused`: after the run completes, clean up all mimic recordings that were not used
-- `pytest --mimic-fail-on-unused`: raises an error if any mimic recording was left unused. Useful for CI
-
-
-## Installation
-
-You can install "pytest-mimic" via [pip](https://pypi.org/project/pip/) from [PyPI](https://pypi.org/project):
-
-```
-$ pip install pytest-mimic
-```
+- `pytest --mimic-record`: Record function calls during tests
+- `pytest --mimic-clear-unused`: Clean up all mimic recordings that weren't used
+- `pytest --mimic-fail-on-unused`: Raise an error if any mimic recording was left unused (useful for CI)
 
 ## Storage Considerations
 
-The mimic vault directory (`project_root/.mimic_vault` by default) can grow to contain a large amount of data depending on the amount of mimicked calls and size of outputs.
+The mimic vault directory (`.mimic_vault` by default) can grow large. For Git users, consider using [Git LFS](https://git-lfs.github.com/):
 
-Consider using something like [Git Large File Storage (LFS)](https://git-lfs.github.com/) to efficiently handle these files:
+```bash
+# Install Git LFS
+git lfs install
 
-   ```bash
-   # Install Git LFS
-   $ git lfs install
-   
-   # Track pickle files in your mimic vault
-   $ git lfs track ".mimic_vault/**/*.pkl"
-   
-   # Make sure .gitattributes is committed
-   $ git add .gitattributes
-   ```
+# Track pickle files in your mimic vault
+git lfs track ".mimic_vault/**/*.pkl"
 
+# Commit .gitattributes
+git add .gitattributes
+```
 
 ## Contributing
 
-Contributions are very welcome. Tests can be run with [tox](https://tox.readthedocs.io/en/latest/), please ensure the coverage at least stays the same before you submit a pull request.
+Contributions are welcome! Tests can be run with [tox](https://tox.readthedocs.io/en/latest/). Please ensure the coverage at least stays the same before submitting a pull request.
 
 ## License
 
-Distributed under the terms of the [MIT](https://opensource.org/licenses/MIT) license, "pytest-mimic" is free and open source software
-
-This [pytest](https://github.com/pytest-dev/pytest) plugin was generated with [Cookiecutter](https://github.com/audreyr/cookiecutter) along with [@hackebrot](https://github.com/hackebrot)'s [cookiecutter-pytest-plugin](https://github.com/pytest-dev/cookiecutter-pytest-plugin) template.
+Distributed under the terms of the [MIT](https://opensource.org/licenses/MIT) license, `pytest-mimic` is free and open source software.
 
 ## Issues
 

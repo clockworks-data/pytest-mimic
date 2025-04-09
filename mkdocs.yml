@@ -4,7 +4,11 @@ site_author: Teo Cherici
 
 theme: readthedocs
 
-repo_url: https://github.com/TCherici/pytest-mimic
+repo_url: https://github.com/clockworks-data/pytest-mimic
 
-pages:
-- Home: index.md
+nav:
+  - Home: index.md
+  - Usage Guide: usage.md
+  - Advanced Features: advanced.md
+  - API Reference: api.md
+  - Examples: examples.md

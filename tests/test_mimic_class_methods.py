@@ -2,15 +2,17 @@ import os
 
 import pytest
 
-from src.pytest_mimic.mimic_manager import mimic
+from pytest_mimic.mimic_manager import mimic
 from tests.example_module import ExampleClass
 
 
 def test_mimic_fails_on_instance_methods():
     obj = ExampleClass()
-    with pytest.raises(ValueError, match="It is not possible to mimic methods of instantiated objects"):
+    with pytest.raises(
+        ValueError, match="It is not possible to mimic methods of instantiated objects"
+    ):
         with mimic(obj.example_method):
-            obj.example_method(5,b=3)
+            obj.example_method(5, b=3)
 
 
 def test_mimic_classmethod():
@@ -56,8 +58,7 @@ def test_mimic_mutable_method():
     os.environ["MIMIC_RECORD"] = "1"
     with mimic(ExampleClass.example_mutable_method):
         with pytest.raises(RuntimeError, match="has mutated its inputs."):
-            result = ExampleClass().example_mutable_method(5, b=3)
-            print(result)
+            ExampleClass().example_mutable_method(5, b=3)
 
 
 def test_mimic_nested_classmethod():
@@ -83,7 +84,10 @@ def test_mimic_nested_staticmethod():
         assert result == 8
 
         os.environ["MIMIC_RECORD"] = "0"
-        assert ExampleClass.NestedClass.DoubleNestedClass.example_dnested_staticmethod(5, b=3) == result
+        assert (
+            ExampleClass.NestedClass.DoubleNestedClass.example_dnested_staticmethod(5, b=3)
+            == result
+        )
 
 
 def test_mimic_nested_instance_method():
@@ -132,11 +136,11 @@ def test_mimic_class_methods_works(pytester):
 
             def example_method(self, a, b):
                 return self.instance_value + a + b
-                
+
             def example_mutable_method(self, a, b):
                 self.instance_value = self.instance_value + 1
                 return self.instance_value + a + b
-                
+
             class NestedClass:
                 class DoubleNestedClass:
                     def __init__(self):
@@ -162,47 +166,49 @@ def test_mimic_class_methods_works(pytester):
             with mimic(ExampleClass.example_staticmethod):
                 result = ExampleClass.example_staticmethod(5, b=3)
             assert result == 8
-            
+
         def test_mimic_instance_method():
             with mimic(ExampleClass.example_method):
                 result = ExampleClass().example_method(5, b=3)
             assert result == 8
-            
+
         def test_mimic_mutable_method():
             with mimic(ExampleClass.example_mutable_method):
                 with pytest.raises(RuntimeError, match="has mutated its inputs."):
                     ExampleClass().example_mutable_method(5, b=3)
-                    
+
         def test_mimic_nested_classmethod():
             with mimic(ExampleClass.NestedClass.DoubleNestedClass.example_dnested_classmethod):
-                result = ExampleClass.NestedClass.DoubleNestedClass.example_dnested_classmethod(5, b=3)
+                result = ExampleClass.NestedClass.DoubleNestedClass.example_dnested_classmethod(
+                    5, b=3)
             assert result == 8
-            
+
         def test_mimic_nested_staticmethod():
             with mimic(ExampleClass.NestedClass.DoubleNestedClass.example_dnested_staticmethod):
-                result = ExampleClass.NestedClass.DoubleNestedClass.example_dnested_staticmethod(5, b=3)
+                result = ExampleClass.NestedClass.DoubleNestedClass.example_dnested_staticmethod(
+                    5, b=3)
             assert result == 8
-            
+
         def test_mimic_nested_instance_method():
             with mimic(ExampleClass.NestedClass.DoubleNestedClass.example_dnested_method):
                 result = ExampleClass.NestedClass.DoubleNestedClass().example_dnested_method(5, b=3)
             assert result == 8
         """
     )
-    results = pytester.runpytest('-v')
+    results = pytester.runpytest("-v")
 
     # All tests should fail since we don't have recordings yet
-    assert results.parseoutcomes()['failed'] == 7
-    assert "RuntimeError: Missing mim" in '\n'.join(results.outlines)
+    assert results.parseoutcomes()["failed"] == 7
+    assert "RuntimeError: Missing mim" in "\n".join(results.outlines)
 
     # now run with record mode on
-    results = pytester.runpytest('--mimic-record', '-v')
+    results = pytester.runpytest("--mimic-record", "-v")
 
     # All tests should pass when recording
-    assert results.parseoutcomes()['passed'] == 7
+    assert results.parseoutcomes()["passed"] == 7
 
     # now run with record mode off again, using stored input-output
-    results = pytester.runpytest('-v')
+    results = pytester.runpytest("-v")
 
     # All tests should pass with replay
-    assert results.parseoutcomes()['passed'] == 7
+    assert results.parseoutcomes()["passed"] == 7

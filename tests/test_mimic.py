@@ -40,21 +40,20 @@ def test_mimic_across_runs(pytester):
             assert result['result'] == 8
         """
     )
-    results = pytester.runpytest('-v')
+    results = pytester.runpytest("-v")
 
     # Both tests should fail since we don't have recordings yet
-    assert results.parseoutcomes()['failed'] == 2
-    assert "RuntimeError: Missing mim" in '\n'.join(results.outlines)
+    assert results.parseoutcomes()["failed"] == 2
+    assert "RuntimeError: Missing mim" in "\n".join(results.outlines)
 
     # now run with record mode on
-    results = pytester.runpytest('--mimic-record', '-v')
+    results = pytester.runpytest("--mimic-record", "-v")
 
     # Both tests should pass when recording
-    assert results.parseoutcomes()['passed'] == 2
+    assert results.parseoutcomes()["passed"] == 2
 
     # now run with record mode off again, using stored input-output
-    results = pytester.runpytest('-v')
+    results = pytester.runpytest("-v")
 
     # Both tests should pass with replay
-    assert results.parseoutcomes()['passed'] == 2
-
+    assert results.parseoutcomes()["passed"] == 2

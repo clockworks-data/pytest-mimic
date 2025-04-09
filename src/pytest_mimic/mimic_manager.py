@@ -7,11 +7,10 @@ import logging
 import os
 import pickle
 import sys
-import types
 import warnings
 from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger("pytest_mimic")
 
@@ -20,21 +19,48 @@ _accessed_hashes: set = set()
 
 
 def set_cache_dir(path: Path):
+    """Set the directory path where mimic recordings will be stored.
+    
+    Args:
+        path: Path object pointing to the mimic vault directory
+    """
     global _cache_dir
     _cache_dir = path
 
 
 def get_cache_dir() -> Path:
-    """Get the mimic cache directory path."""
+    """Get the mimic cache directory path.
+    
+    Returns:
+        The Path object pointing to the mimic vault directory
+        
+    Raises:
+        RuntimeError: If the mimic system has not been initialized
+    """
     if _cache_dir is None:
         raise RuntimeError("Mimic functionality not initialized. Initialize first.")
     return _cache_dir
 
 
 def try_load_result_from_cache(func, args, kwargs) -> tuple[Optional[object], Optional[str]]:
-    """
-        Tries to load function call from mimic vault. If it fails and is in mimic-record mode return
-         the function call hash key instead to allow for the storage of the function output
+    """Try to load a recorded function call result from the mimic vault.
+    
+    This function attempts to retrieve a previously recorded function call result.
+    If the function call has not been recorded and we're in record mode, it returns
+    the hash key to allow later storage of the result.
+    
+    Args:
+        func: The function being called
+        args: Positional arguments to the function
+        kwargs: Keyword arguments to the function
+        
+    Returns:
+        A tuple containing:
+        - The recorded result (or None if not found/in record mode)
+        - The hash key (only if in record mode and result not found, otherwise None)
+        
+    Raises:
+        RuntimeError: If the result is not found and we're not in record mode
     """
     hash_key = compute_hash(func, args, kwargs)
 
@@ -49,17 +75,30 @@ def try_load_result_from_cache(func, args, kwargs) -> tuple[Optional[object], Op
             return pickle.load(f), None
 
     if not record_mode:
-        raise RuntimeError(f"Missing mimic-recorded result for function call "
-                           f"{func.__name__} with hash {hash_key}.\n"
-                           f"Run pytest with --mimic-record to record responses.")
+        raise RuntimeError(
+            f"Missing mimic-recorded result for function call "
+            f"{func.__name__} with hash {hash_key}.\n"
+            f"Run pytest with --mimic-record to record responses."
+        )
     return None, hash_key
 
 
 def mimic_location(func_location: str) -> None:
-    """
-    Mimic a function call, replacing it with a version that returns recorded results.
+    """Mimic a function or method specified by an import string path.
 
-    This is the main entry point for mimicking a function. Works with both sync and async functions.
+    This is the main entry point for mimicking a function globally through configuration.
+    Works with both synchronous and asynchronous functions.
+
+    Args:
+        func_location: Import path string in the format "module.submodule:function_name"
+                      or "module.submodule:Class.method_name"
+
+    Raises:
+        ImportError: If the function cannot be imported from the given path
+
+    Examples:
+        >>> mimic_location("myapp.api:get_user_data")
+        >>> mimic_location("myapp.models:User.get_by_id")
     """
     parent_obj, func = _import_function_from_string(func_location)
 
@@ -68,30 +107,56 @@ def mimic_location(func_location: str) -> None:
 
 @contextlib.contextmanager
 def mimic(func: callable, classmethod_warning: bool = True):
+    """Context manager that intercepts calls to a function and records or replays its behavior.
+
+    Args:
+        func: The function or method to mimic
+        classmethod_warning: Whether to issue a warning when mimicking classmethods
+            that might mutate class state (default: True)
+
+    Yields:
+        None: This context manager doesn't yield a value
+
+    Raises:
+        ValueError: If attempting to mimic a method bound to an instance
+
+    Examples:
+        >>> with mimic(expensive_function):
+        ...     result = function_that_calls_expensive_function()
+
+        >>> # Mimicking a class method
+        >>> with mimic(MyClass.class_method):
+        ...     result = function_that_calls_class_method()
+    """
     original_func = func
 
     if inspect.ismethod(func):
         if not isinstance(func.__self__, type):
-            raise ValueError(f"It is not possible to mimic methods of instantiated objects. \n"
-                             f"Mimic the class definition of the method instead:\n"
-                             f"`with mimic(MyClass.method):` instead of "
-                             f"`with mimic(MyClass().method):`")
+            raise ValueError(
+                "It is not possible to mimic methods of instantiated objects. \n"
+                "Mimic the class definition of the method instead:\n"
+                "`with mimic(MyClass.method):` instead of "
+                "`with mimic(MyClass().method):`"
+            )
 
         if classmethod_warning:
-            warnings.warn(f"Mimicking classmethod {func.__qualname__}.\n"
-                          f"Mimicking cannot check for class-level mutations caused"
-                          f" by calling this method.\n"
-                          f"If you're sure that this classmethod does not mutate its class"
-                          f" you can use\n"
-                          f"\tmimic(<your_classmethod>, classmethod_warning=False)\n"
-                          f"to suppress this warning.")
+            warnings.warn(
+                f"Mimicking classmethod {func.__qualname__}.\n"
+                f"Mimicking cannot check for class-level mutations caused"
+                f" by calling this method.\n"
+                f"If you're sure that this classmethod does not mutate its class"
+                f" you can use\n"
+                f"\tmimic(<your_classmethod>, classmethod_warning=False)\n"
+                f"to suppress this warning.",
+                stacklevel=2,
+            )
         func_parent = func.__self__
 
-    elif '.' in func.__qualname__:
+    elif "." in func.__qualname__:
         #  static methods are not recognized as methods,
         #   but we need to get their parent class nonetheless
         func_parent = importlib.import_module(func.__module__)
-        for child in func.__qualname__.split('.')[:-1]:
+        for child in func.__qualname__.split(".")[:-1]:
             func_parent = getattr(func_parent, child)
     else:
         func_parent = importlib.import_module(func.__module__)
@@ -102,7 +167,17 @@ def mimic(func: callable, classmethod_warning: bool = True):
 
 
 def _mimic(parent_obj, func):
+    """Replace a function or method with a version that records or replays its behavior.
+
+    This is an internal function used by both mimic() and mimic_location().
+    It handles both synchronous and asynchronous functions.
+
+    Args:
+        parent_obj: The parent object (module or class) that contains the function
+        func: The function or method to mimic
+    """
     if asyncio.iscoroutinefunction(func):
+
         @wraps(func)
         async def async_wrapper(*args, **kwargs):
             result, hash_key = try_load_result_from_cache(func, args, kwargs)
@@ -114,9 +189,11 @@ def _mimic(parent_obj, func):
                 # Check that calling the function didn't mutate inputs
                 new_hash_key = compute_hash(func, args, kwargs)
                 if new_hash_key != hash_key:
-                    raise RuntimeError(f"Running function {func} has mutated its inputs.\n"
-                                       f"Mimicking shouldn't be used on functions or methods"
-                                       f" that mutate its input (or parent object)")
+                    raise RuntimeError(
+                        f"Running function {func} has mutated its inputs.\n"
+                        f"Mimicking shouldn't be used on functions or methods"
+                        f" that mutate its input (or parent object)"
+                    )
 
                 # Save the result for future use
                 save_func_result(hash_key, result)
@@ -125,6 +202,7 @@ def _mimic(parent_obj, func):
 
         setattr(parent_obj, func.__name__, async_wrapper)
     else:
+
         @wraps(func)
         def sync_wrapper(*args, **kwargs):
             result, hash_key = try_load_result_from_cache(func, args, kwargs)
@@ -136,9 +214,11 @@ def _mimic(parent_obj, func):
                 # Check that calling the function didn't mutate inputs
                 new_hash_key = compute_hash(func, args, kwargs)
                 if new_hash_key != hash_key:
-                    raise RuntimeError(f"Running function {func} has mutated its inputs.\n"
-                                       f"Mimicking shouldn't be used on functions or methods"
-                                       f" that mutate its input (or parent object)")
+                    raise RuntimeError(
+                        f"Running function {func} has mutated its inputs.\n"
+                        f"Mimicking shouldn't be used on functions or methods"
+                        f" that mutate its input (or parent object)"
+                    )
 
                 # Save the result for future use
                 save_func_result(hash_key, result)
@@ -149,7 +229,19 @@ def _mimic(parent_obj, func):
 
 
 def compute_hash(func: Callable, args: tuple, kwargs: dict) -> str:
-    """Compute a deterministic hash for a function call."""
+    """Compute a deterministic hash for a function call.
+    
+    This function creates a unique hash based on the function identity and its inputs.
+    The hash is used as a key to store and retrieve recorded function results.
+    
+    Args:
+        func: The function being called
+        args: Positional arguments to the function
+        kwargs: Keyword arguments to the function
+        
+    Returns:
+        A hex digest string that uniquely identifies this function call
+    """
     sha256 = hashlib.sha256()
 
     # Hash function identity (module + name)
@@ -178,14 +270,20 @@ def compute_hash(func: Callable, args: tuple, kwargs: dict) -> str:
             sha256.update(str(kwargs[key]).encode("utf-8"))
 
     hash_key = sha256.hexdigest()
-    logger.debug(f"Mimic: function {func.__name__} with inputs {args} and {kwargs}"
-                 f" generated hash {hash_key}")
+    logger.debug(
+        f"Mimic: function {func.__name__} with inputs {args} and {kwargs} generated hash {hash_key}"
+    )
 
     return hash_key
 
 
 def save_func_result(hash_key: str, result: Any) -> None:
-    """Save a result to the cache."""
+    """Save a function call result to the mimic vault.
+    
+    Args:
+        hash_key: The unique hash key for this function call
+        result: The result of the function call to save
+    """
     global _accessed_hashes
     # Track this hash as it's being created in this test run
     _accessed_hashes.add(hash_key)
@@ -201,14 +299,26 @@ def save_func_result(hash_key: str, result: Any) -> None:
 
 
 def get_model_cache_path(hash_key: str) -> Path:
-    """Get the path to the pickle file for a specific function call."""
+    """Get the path to the pickle file for a specific function call.
+    
+    Args:
+        hash_key: The unique hash key for the function call
+        
+    Returns:
+        A Path object pointing to the pickle file location
+    """
     return get_cache_dir() / f"{hash_key}.pkl"
 
 
 def get_unused_recordings() -> list[str]:
     """Get all unused function call recordings.
 
-    Returns a list of unused hash keys.
+    This function identifies all recorded function calls that weren't accessed
+    during the current test run. These may be obsolete recordings that are no
+    longer needed.
+    
+    Returns:
+        A list of hash keys corresponding to unused recordings
     """
     global _accessed_hashes
     cache_dir = get_cache_dir()
@@ -217,7 +327,7 @@ def get_unused_recordings() -> list[str]:
 
     unused_hashes = []
     for cache_file in cache_dir.iterdir():
-        if cache_file.suffix == '.pkl':
+        if cache_file.suffix == ".pkl":
             hash_key = cache_file.stem
             if hash_key not in _accessed_hashes:
                 unused_hashes.append(hash_key)
@@ -228,7 +338,12 @@ def get_unused_recordings() -> list[str]:
 def clear_unused_recordings() -> int:
     """Clear all unused function call recordings.
 
-    Returns the number of removed recordings.
+    This function deletes all recorded function calls that weren't accessed
+    during the current test run. This helps keep the mimic vault size manageable
+    by removing obsolete recordings.
+    
+    Returns:
+        The number of removed recordings
     """
     unused_hashes = get_unused_recordings()
     cache_dir = get_cache_dir()
@@ -243,9 +358,16 @@ def clear_unused_recordings() -> int:
 
 
 def _initialize_mimic(config):
-    """Initialize the mimic system and return the cache directory path."""
-    if config.getini('mimic_vault_path'):
-        cache_dir = Path(config.getini('mimic_vault_path'))
+    """Initialize the mimic system and configure the mimic vault path.
+    
+    This function is called during pytest startup. It sets up the vault directory
+    and applies mimicking to all functions specified in the configuration.
+    
+    Args:
+        config: The pytest configuration object
+    """
+    if config.getini("mimic_vault_path"):
+        cache_dir = Path(config.getini("mimic_vault_path"))
         if not cache_dir.is_absolute():
             cache_dir = config.rootpath.absolute() / cache_dir
     else:
@@ -256,7 +378,7 @@ def _initialize_mimic(config):
     # Add rootpath to path to find
     sys.path.append(str(config.rootpath))
     # Apply mimicking to all functions from ini configuration
-    for function_to_mimic in config.getini('mimic_functions'):
+    for function_to_mimic in config.getini("mimic_functions"):
         mimic_location(function_to_mimic)
 
 
@@ -264,18 +386,32 @@ def _import_function_from_string(import_path) -> tuple[object, Callable]:
     """Import a function from an import path string.
 
     Format: module.submodule:function_name or module.submodule:Class_name.method_name
+    
+    Args:
+        import_path: A string in the format "module.submodule:function_name" or
+                     "module.submodule:Class.method_name"
+                     
+    Returns:
+        A tuple containing:
+        - The parent object (module or class) that contains the function
+        - The function or method object
+        
+    Raises:
+        ImportError: If the function cannot be imported from the given path
+        ValueError: If the import path format is invalid
     """
     try:
-        if ':' not in import_path:
-            raise ValueError(f"Invalid import path format: {import_path}."
-                             f" Expected 'package.module:function'")
+        if ":" not in import_path:
+            raise ValueError(
+                f"Invalid import path format: {import_path}. Expected 'package.module:function'"
+            )
 
-        module_path, func_name = import_path.strip().split(':', 1)
+        module_path, func_name = import_path.strip().split(":", 1)
 
         # Import the module
         module = importlib.import_module(module_path)
 
-        path = func_name.split('.')
+        path = func_name.split(".")
         return getattr_nested(module, path[:-1]), getattr_nested(module, path)
 
     except (ImportError, AttributeError, ValueError) as e:
@@ -283,6 +419,18 @@ def _import_function_from_string(import_path) -> tuple[object, Callable]:
 
 
 def getattr_nested(base_obj, path: list[str]):
+    """Recursively get nested attributes from an object.
+    
+    Args:
+        base_obj: The base object to start from
+        path: A list of attribute names to follow
+        
+    Returns:
+        The attribute at the end of the path
+        
+    Raises:
+        AttributeError: If any attribute in the path doesn't exist
+    """
     if len(path) == 0:
         return base_obj
     else:
