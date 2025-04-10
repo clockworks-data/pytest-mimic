@@ -1,10 +1,15 @@
 name: Publish Python 🐍 distribution 📦 to PyPI and TestPyPI
 
 on:
-  push
-
+  workflow_dispatch:
+  push:
+    branches:
+      - 'main'
+    tags:
+      - 'v*'
 jobs:
   build:
+    if: ${{ github.event.pull_request.merged }}
     name: Build distribution 📦
     runs-on: ubuntu-latest
     steps:
@@ -29,7 +34,6 @@ jobs:
           path: dist/
 
   publish-to-testpypi:
-    if: ${{ github.event.pull_request.merged }}
     name: Publish Python 🐍 distribution 📦 to TestPyPI
     needs:
     - build
