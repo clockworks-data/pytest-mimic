@@ -70,7 +70,6 @@ lint.select = [
     "E",   # pycodestyle errors
     "F",   # pyflakes
     "I",   # isort
-    "W",   # pycodestyle warnings
     "N",   # pep8-naming
     "UP",  # pyupgrade
     "C4",  # flake8-comprehensions
