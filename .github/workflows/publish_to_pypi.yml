@@ -1,11 +1,10 @@
-name: Publish Python 🐍 distribution 📦 to TestPyPI
+name: Publish Python 🐍 distribution 📦 to PyPI
 
 on:
-  pull_request:
-    types:
-      - closed
-    branches:
-      - 'main'
+  workflow_dispatch:
+  push:
+    tags:
+      - "v"
 
 jobs:
   build:
@@ -33,15 +32,15 @@ jobs:
           name: python-package-distributions
           path: dist/
 
-  publish-to-testpypi:
-    name: Publish Python 🐍 distribution 📦 to TestPyPI
+  publish-to-pypi:
+    name: Publish Python 🐍 distribution 📦 to PyPI
     needs:
     - build
     runs-on: ubuntu-latest
 
     environment:
-      name: testpypi
-      url: https://test.pypi.org/p/pytest-mimic
+      name: pypi
+      url: https://pypi.org/p/pytest-mimic
 
     permissions:
       id-token: write  # IMPORTANT: mandatory for trusted publishing
@@ -52,7 +51,7 @@ jobs:
       with:
         name: python-package-distributions
         path: dist/
-    - name: Publish distribution 📦 to TestPyPI
+    - name: Publish distribution 📦 to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
-        repository-url: https://test.pypi.org/legacy/
+        repository-url: https://pypi.org/legacy/
