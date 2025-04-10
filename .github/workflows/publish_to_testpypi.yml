@@ -1,15 +1,12 @@
 name: Publish Python 🐍 distribution 📦 to PyPI and TestPyPI
 
 on:
-  workflow_dispatch:
-  push:
-    branches:
-      - 'main'
-    tags:
-      - 'v*'
+  pull_request:
+    types:
+      - closed
 jobs:
   build:
-    if: ${{ github.event.pull_request.merged }}
+    if: github.event.pull_request.merged == true
     name: Build distribution 📦
     runs-on: ubuntu-latest
     steps:
