@@ -19,6 +19,8 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: 3.12
+      - name: Install requests
+        run: pip install requests
       - name: "Check if current version is already released"
         shell: python
         id: check-if-released
