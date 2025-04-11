@@ -8,9 +8,40 @@ on:
       - 'main'
 
 jobs:
-  build:
+  check_version:
     if: github.event.pull_request.merged == true
+    name: Check if this package version has been released already
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Check if current version is already released"
+        shell: python
+        id: check-if-released
+        run: |
+          import os
+          import requests
+          import sys
+          import tomli
+          
+          package_name = 'pytest-mimic'
+          pypi_url = f'https://test.pypi.org/pypi/{package_name}/json'
+          released_versions = list(requests.get(pypi_url).json()['releases'].keys())
+          local_version = tomli.load(open("pyproject.toml", "rb"))["project"]["version"]
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as fh:
+            fh.write(f'is_released={local_version in released_versions}\n')
+
+      - name: "Is released"
+        run: echo ${{steps.check-if-released.outputs.is_released}}
+
+    outputs:
+      is-released: ${{ steps.check-if-released.outputs.is_released }}
+
+  build:
+    if: ${{ needs.check_version.outputs.is-released == "True" }}
     name: Build distribution 📦
+    needs:
+      - check_version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,7 +53,7 @@ jobs:
           cache-dependency-glob: uv.lock
 
       - name: Set up Python
-        run: uv python install 3.12  # Or whatever version I want to use.
+        run: uv python install 3.12
 
       - name: Build
         run: uv build
@@ -38,6 +69,8 @@ jobs:
     needs:
     - build
     runs-on: ubuntu-latest
+
+    if: ${{needs.build.outputs.version-get != '0.1.0' }}
 
     environment:
       name: testpypi
