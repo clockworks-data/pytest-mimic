@@ -44,7 +44,7 @@ jobs:
       is-released: ${{ steps.check-if-released.outputs.is_released }}
 
   build:
-    if: ${{ needs.check_version.outputs.is-released == 'True' }}
+    if: ${{ needs.check_version.outputs.is-released != 'True' }}
     name: Build distribution 📦
     needs:
       - check_version
