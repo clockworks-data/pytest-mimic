@@ -20,7 +20,7 @@ jobs:
         with:
           python-version: 3.12
       - name: Install requests
-        run: pip install requests
+        run: pip install requests tomli
       - name: "Check if current version is already released"
         shell: python
         id: check-if-released
