@@ -19,7 +19,7 @@ import pytest_mimic
 
 def test_function_to_test():
     # Wrap the expensive function in a mimic context manager
-    with pytest_mimic.mimic(expensive_function):
+    with pytest_mimic.mimic('module.expensive_function'):
        result = function_to_test()  # This function calls expensive_function internally
     assert result == expected_value
 ```
@@ -61,9 +61,9 @@ Configure functions to be mimicked globally in your project configuration:
 # pyproject.toml
 [tool.pytest.ini_options]
 mimic_functions = [
-    "some_module:expensive_function",
-    "some_module:another_function",
-    "some_module.sub_module:SomeClass.method"
+    "some_module.expensive_function",
+    "some_module.another_function",
+    "some_module.sub_module.SomeClass.method"
 ]
 ```
 

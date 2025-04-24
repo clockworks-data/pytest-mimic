@@ -32,7 +32,7 @@ class TestMimicManager:
         cache_files = list(tmp_mimic_vault.glob("**/*.pkl"))
         assert len(cache_files) == 0
 
-        with mimic(async_dummy_func):
+        with mimic("test_mimic_manager.async_dummy_func"):
             result = await async_dummy_func(5, b=3)
 
         # Verify result
@@ -48,7 +48,7 @@ class TestMimicManager:
         # Set record mode for initial recording
         os.environ["MIMIC_RECORD"] = "1"
 
-        with mimic(async_dummy_func):
+        with mimic("test_mimic_manager.async_dummy_func"):
             result = await async_dummy_func(5, b=3)
 
             # Switch to replay mode
@@ -63,7 +63,7 @@ class TestMimicManager:
         """Test that an exception is raised if no mock is found in replay mode."""
         os.environ["MIMIC_RECORD"] = "0"
 
-        with mimic(async_dummy_func):
+        with mimic("test_mimic_manager.async_dummy_func"):
             # Call with args that haven't been recorded should fail
             with pytest.raises(RuntimeError, match="Missing mimic-recorded result for function"):
                 await async_dummy_func(999)
@@ -94,8 +94,8 @@ class TestMimicManager:
         # Set record mode and create files in the vault
         os.environ["MIMIC_RECORD"] = "1"
 
-        with mimic(async_dummy_func):
-            with mimic(sync_dummy_func):
+        with mimic("test_mimic_manager.async_dummy_func"):
+            with mimic("test_mimic_manager.sync_dummy_func"):
                 sync_dummy_func(5, b=3)
                 sync_dummy_func(5, b=4)
                 await async_dummy_func(0, 1)
@@ -118,8 +118,8 @@ class TestMimicManager:
         os.environ["MIMIC_RECORD"] = "1"
 
         # Patch and call the functions to create recordings
-        with mimic(async_dummy_func):
-            with mimic(sync_dummy_func):
+        with mimic("test_mimic_manager.async_dummy_func"):
+            with mimic("test_mimic_manager.sync_dummy_func"):
                 # Record function calls with different args
                 sync_dummy_func(5, b=3)
                 sync_dummy_func(10, b=20)
@@ -141,7 +141,7 @@ class TestMimicManager:
         os.environ["MIMIC_RECORD"] = "1"
 
         # Patch the sync function
-        with mimic(sync_dummy_func):
+        with mimic("test_mimic_manager.sync_dummy_func"):
             # First call to record
             result = sync_dummy_func(5, b=3)
             assert result == {"result": 8}

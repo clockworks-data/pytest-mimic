@@ -6,17 +6,15 @@ from pytest_mimic.mimic_manager import mimic
 from tests.example_module import ExampleClass
 
 
-def test_mimic_fails_on_instance_methods():
+def test_mimic_fails_on_non_string_paths():
     obj = ExampleClass()
-    with pytest.raises(
-        ValueError, match="It is not possible to mimic methods of instantiated objects"
-    ):
+    with pytest.raises(ImportError, match="Failed to import function from path"):
         with mimic(obj.example_method):
             obj.example_method(5, b=3)
 
 
 def test_mimic_classmethod():
-    with mimic(ExampleClass.example_classmethod):
+    with mimic("tests.example_module.ExampleClass.example_classmethod"):
         with pytest.raises(RuntimeError, match="Missing mimic-recorded result for function call"):
             ExampleClass.example_classmethod(5, b=3)
         # Set record mode
@@ -29,7 +27,7 @@ def test_mimic_classmethod():
 
 
 def test_mimic_staticmethod():
-    with mimic(ExampleClass.example_staticmethod):
+    with mimic("tests.example_module.ExampleClass.example_staticmethod"):
         with pytest.raises(RuntimeError, match="Missing mimic-recorded result for function call"):
             ExampleClass.example_staticmethod(5, b=3)
         # Set record mode
@@ -42,7 +40,7 @@ def test_mimic_staticmethod():
 
 
 def test_mimic_instance_method():
-    with mimic(ExampleClass.example_method):
+    with mimic("tests.example_module.ExampleClass.example_method"):
         with pytest.raises(RuntimeError, match="Missing mimic-recorded result for function call"):
             ExampleClass().example_method(5, b=3)
         # Set record mode
@@ -56,13 +54,15 @@ def test_mimic_instance_method():
 
 def test_mimic_mutable_method():
     os.environ["MIMIC_RECORD"] = "1"
-    with mimic(ExampleClass.example_mutable_method):
+    with mimic("tests.example_module.ExampleClass.example_mutable_method"):
         with pytest.raises(RuntimeError, match="has mutated its inputs."):
             ExampleClass().example_mutable_method(5, b=3)
 
 
 def test_mimic_nested_classmethod():
-    with mimic(ExampleClass.NestedClass.DoubleNestedClass.example_dnested_class):
+    with mimic(
+        "tests.example_module.ExampleClass.NestedClass.DoubleNestedClass.example_dnested_class"
+    ):
         with pytest.raises(RuntimeError, match="Missing mimic-recorded result for function call"):
             ExampleClass.NestedClass.DoubleNestedClass.example_dnested_class(5, b=3)
         # Set record mode
@@ -75,7 +75,9 @@ def test_mimic_nested_classmethod():
 
 
 def test_mimic_nested_staticmethod():
-    with mimic(ExampleClass.NestedClass.DoubleNestedClass.example_dnested_staticmethod):
+    with mimic(
+        "tests.example_module.ExampleClass.NestedClass.DoubleNestedClass.example_dnested_staticmethod"
+    ):
         with pytest.raises(RuntimeError, match="Missing mimic-recorded result for function call"):
             ExampleClass.NestedClass.DoubleNestedClass.example_dnested_staticmethod(5, b=3)
         # Set record mode
@@ -91,7 +93,9 @@ def test_mimic_nested_staticmethod():
 
 
 def test_mimic_nested_instance_method():
-    with mimic(ExampleClass.NestedClass.DoubleNestedClass.example_dnested_method):
+    with mimic(
+        "tests.example_module.ExampleClass.NestedClass.DoubleNestedClass.example_dnested_method"
+    ):
         with pytest.raises(RuntimeError, match="Missing mimic-recorded result for function call"):
             ExampleClass.NestedClass.DoubleNestedClass().example_dnested_method(5, b=3)
         # Set record mode
@@ -118,7 +122,7 @@ def test_mimic_class_methods_works(pytester):
     """
     )
     pytester.makepyfile(
-        """
+        test_file="""
         import pytest
         from src.pytest_mimic.mimic_manager import mimic
 
@@ -158,39 +162,45 @@ def test_mimic_class_methods_works(pytester):
                         return self.instance_value + a + b
 
         def test_mimic_classmethod():
-            with mimic(ExampleClass.example_classmethod):
+            with mimic('test_file.ExampleClass.example_classmethod'):
                 result = ExampleClass.example_classmethod(5, b=3)
             assert result == 8
 
         def test_mimic_staticmethod():
-            with mimic(ExampleClass.example_staticmethod):
+            with mimic('test_file.ExampleClass.example_staticmethod'):
                 result = ExampleClass.example_staticmethod(5, b=3)
             assert result == 8
 
         def test_mimic_instance_method():
-            with mimic(ExampleClass.example_method):
+            with mimic('test_file.ExampleClass.example_method'):
                 result = ExampleClass().example_method(5, b=3)
             assert result == 8
 
         def test_mimic_mutable_method():
-            with mimic(ExampleClass.example_mutable_method):
+            with mimic('test_file.ExampleClass.example_mutable_method'):
                 with pytest.raises(RuntimeError, match="has mutated its inputs."):
                     ExampleClass().example_mutable_method(5, b=3)
 
         def test_mimic_nested_classmethod():
-            with mimic(ExampleClass.NestedClass.DoubleNestedClass.example_dnested_classmethod):
+            with mimic(
+                'test_file.ExampleClass.NestedClass.DoubleNestedClass.example_dnested_classmethod'
+            ):
                 result = ExampleClass.NestedClass.DoubleNestedClass.example_dnested_classmethod(
                     5, b=3)
             assert result == 8
 
         def test_mimic_nested_staticmethod():
-            with mimic(ExampleClass.NestedClass.DoubleNestedClass.example_dnested_staticmethod):
+            with mimic(
+                'test_file.ExampleClass.NestedClass.DoubleNestedClass.example_dnested_staticmethod'
+            ):
                 result = ExampleClass.NestedClass.DoubleNestedClass.example_dnested_staticmethod(
                     5, b=3)
             assert result == 8
 
         def test_mimic_nested_instance_method():
-            with mimic(ExampleClass.NestedClass.DoubleNestedClass.example_dnested_method):
+            with mimic(
+                'test_file.ExampleClass.NestedClass.DoubleNestedClass.example_dnested_method'
+            ):
                 result = ExampleClass.NestedClass.DoubleNestedClass().example_dnested_method(5, b=3)
             assert result == 8
         """

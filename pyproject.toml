@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pytest-mimic"
 description = "Easily record function calls while testing"
-version = "0.1.2"
+version = "0.2.0"
 readme = "README.md"
 requires-python = ">=3.9"
 authors = [
@@ -58,7 +58,7 @@ dev = [
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "session"
 mimic_functions = [
-    "tests.example_module:example_function_to_mimic"
+    "tests.example_module.example_function_to_mimic"
 ]
 # Optional: specify custom location for mimic cache directory
 # mimic_vault_path = ".mimic_vault"

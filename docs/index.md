@@ -19,7 +19,7 @@ import pytest_mimic
 
 def test_function_to_test():
     # Wrap the expensive function in a mimic context manager
-    with pytest_mimic.mimic(expensive_function):
+    with pytest_mimic.mimic('module.sub_module.expensive_function'):
        result = function_to_test()  # This function calls expensive_function internally
     assert result == expected_value
 ```

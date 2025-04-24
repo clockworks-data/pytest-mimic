@@ -8,7 +8,7 @@ logger = logging.getLogger("pytest_mimic")
 
 def pytest_addoption(parser):
     """Add pytest-mimic command line options and configuration settings.
-    
+
     Args:
         parser: The pytest command line parser
     """
@@ -35,7 +35,7 @@ def pytest_addoption(parser):
     parser.addini(
         "mimic_functions",
         type="linelist",
-        help="List of functions to mimic (in format: module.submodule:function_name)",
+        help="List of functions to mimic (in format: module.submodule.function_name)",
         default=[],
     )
 
@@ -47,10 +47,10 @@ def pytest_addoption(parser):
 
 def pytest_configure(config):
     """Configure pytest-mimic based on command-line options and ini settings.
-    
+
     This function sets up the environment variables that control mimic behavior
     and initializes the mimic system.
-    
+
     Args:
         config: The pytest configuration object
     """
@@ -76,14 +76,14 @@ def pytest_configure(config):
 
 def pytest_unconfigure(config):
     """Clean up after all tests have run.
-    
+
     This function handles checking for unused recordings and optionally:
     1. Fails the test run if unused recordings are found and --mimic-fail-on-unused is set
     2. Removes unused recordings if --mimic-clear-unused is set
-    
+
     Args:
         config: The pytest configuration object
-        
+
     Raises:
         RuntimeError: If unused recordings are found and --mimic-fail-on-unused is set
     """
