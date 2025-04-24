@@ -6,6 +6,7 @@ import inspect
 import logging
 import os
 import pickle
+import pkgutil
 import sys
 import warnings
 from functools import wraps
@@ -20,7 +21,7 @@ _accessed_hashes: set = set()
 
 def set_cache_dir(path: Path):
     """Set the directory path where mimic recordings will be stored.
-    
+
     Args:
         path: Path object pointing to the mimic vault directory
     """
@@ -30,10 +31,10 @@ def set_cache_dir(path: Path):
 
 def get_cache_dir() -> Path:
     """Get the mimic cache directory path.
-    
+
     Returns:
         The Path object pointing to the mimic vault directory
-        
+
     Raises:
         RuntimeError: If the mimic system has not been initialized
     """
@@ -44,21 +45,21 @@ def get_cache_dir() -> Path:
 
 def try_load_result_from_cache(func, args, kwargs) -> tuple[Optional[object], Optional[str]]:
     """Try to load a recorded function call result from the mimic vault.
-    
+
     This function attempts to retrieve a previously recorded function call result.
     If the function call has not been recorded and we're in record mode, it returns
     the hash key to allow later storage of the result.
-    
+
     Args:
         func: The function being called
         args: Positional arguments to the function
         kwargs: Keyword arguments to the function
-        
+
     Returns:
         A tuple containing:
         - The recorded result (or None if not found/in record mode)
         - The hash key (only if in record mode and result not found, otherwise None)
-        
+
     Raises:
         RuntimeError: If the result is not found and we're not in record mode
     """
@@ -83,34 +84,15 @@ def try_load_result_from_cache(func, args, kwargs) -> tuple[Optional[object], Op
     return None, hash_key
 
 
-def mimic_location(func_location: str) -> None:
-    """Mimic a function or method specified by an import string path.
-
-    This is the main entry point for mimicking a function globally through configuration.
-    Works with both synchronous and asynchronous functions.
-
-    Args:
-        func_location: Import path string in the format "module.submodule:function_name"
-                      or "module.submodule:Class.method_name"
-
-    Raises:
-        ImportError: If the function cannot be imported from the given path
-
-    Examples:
-        >>> mimic_location("myapp.api:get_user_data")
-        >>> mimic_location("myapp.models:User.get_by_id")
-    """
-    parent_obj, func = _import_function_from_string(func_location)
-
-    _mimic(parent_obj, func)
-
-
 @contextlib.contextmanager
-def mimic(func: callable, classmethod_warning: bool = True):
+def mimic(target: str, classmethod_warning: bool = True):
     """Context manager that intercepts calls to a function and records or replays its behavior.
 
     Args:
-        func: The function or method to mimic
+        target: The import path of function or method to mimic, in the format
+                    "module.submodule.function_name"
+                        or
+                    "module.submodule.Class.method_name"
         classmethod_warning: Whether to issue a warning when mimicking classmethods
             that might mutate class state (default: True)
 
@@ -128,54 +110,23 @@ def mimic(func: callable, classmethod_warning: bool = True):
         >>> with mimic(MyClass.class_method):
         ...     result = function_that_calls_class_method()
     """
-    original_func = func
 
-    if inspect.ismethod(func):
-        if not isinstance(func.__self__, type):
-            raise ValueError(
-                "It is not possible to mimic methods of instantiated objects. \n"
-                "Mimic the class definition of the method instead:\n"
-                "`with mimic(MyClass.method):` instead of "
-                "`with mimic(MyClass().method):`"
-            )
-
-        if classmethod_warning:
-            warnings.warn(
-                f"Mimicking classmethod {func.__qualname__}.\n"
-                f"Mimicking cannot check for class-level mutations caused"
-                f" by calling this method.\n"
-                f"If you're sure that this classmethod does not mutate its class"
-                f" you can use\n"
-                f"\tmimic(<your_classmethod>, classmethod_warning=False)\n"
-                f"to suppress this warning.",
-                stacklevel=2,
-            )
-        func_parent = func.__self__
-
-    elif "." in func.__qualname__:
-        #  static methods are not recognized as methods,
-        #   but we need to get their parent class nonetheless
-        func_parent = importlib.import_module(func.__module__)
-        for child in func.__qualname__.split(".")[:-1]:
-            func_parent = getattr(func_parent, child)
-    else:
-        func_parent = importlib.import_module(func.__module__)
-
-    _mimic(func_parent, func)
+    parent_obj, func = _mimic(target, classmethod_warning)
     yield
-    setattr(func_parent, original_func.__name__, func)
+    setattr(parent_obj, func.__name__, func)
 
 
-def _mimic(parent_obj, func):
+def _mimic(target, classmethod_warning: bool = True):
     """Replace a function or method with a version that records or replays its behavior.
 
-    This is an internal function used by both mimic() and mimic_location().
+    This is an internal function used by both mimic() and _initialize_mimic().
     It handles both synchronous and asynchronous functions.
 
     Args:
-        parent_obj: The parent object (module or class) that contains the function
-        func: The function or method to mimic
+        target: A string in the format "module.submodule.function_name" or
+                     "module.submodule.Class.method_name"
     """
+    parent_obj, func = _import_function_from_string(target, classmethod_warning)
     if asyncio.iscoroutinefunction(func):
 
         @wraps(func)
@@ -227,18 +178,20 @@ def _mimic(parent_obj, func):
 
         setattr(parent_obj, func.__name__, sync_wrapper)
 
+    return parent_obj, func
+
 
 def compute_hash(func: Callable, args: tuple, kwargs: dict) -> str:
     """Compute a deterministic hash for a function call.
-    
+
     This function creates a unique hash based on the function identity and its inputs.
     The hash is used as a key to store and retrieve recorded function results.
-    
+
     Args:
         func: The function being called
         args: Positional arguments to the function
         kwargs: Keyword arguments to the function
-        
+
     Returns:
         A hex digest string that uniquely identifies this function call
     """
@@ -279,7 +232,7 @@ def compute_hash(func: Callable, args: tuple, kwargs: dict) -> str:
 
 def save_func_result(hash_key: str, result: Any) -> None:
     """Save a function call result to the mimic vault.
-    
+
     Args:
         hash_key: The unique hash key for this function call
         result: The result of the function call to save
@@ -300,10 +253,10 @@ def save_func_result(hash_key: str, result: Any) -> None:
 
 def get_model_cache_path(hash_key: str) -> Path:
     """Get the path to the pickle file for a specific function call.
-    
+
     Args:
         hash_key: The unique hash key for the function call
-        
+
     Returns:
         A Path object pointing to the pickle file location
     """
@@ -316,7 +269,7 @@ def get_unused_recordings() -> list[str]:
     This function identifies all recorded function calls that weren't accessed
     during the current test run. These may be obsolete recordings that are no
     longer needed.
-    
+
     Returns:
         A list of hash keys corresponding to unused recordings
     """
@@ -341,7 +294,7 @@ def clear_unused_recordings() -> int:
     This function deletes all recorded function calls that weren't accessed
     during the current test run. This helps keep the mimic vault size manageable
     by removing obsolete recordings.
-    
+
     Returns:
         The number of removed recordings
     """
@@ -359,10 +312,10 @@ def clear_unused_recordings() -> int:
 
 def _initialize_mimic(config):
     """Initialize the mimic system and configure the mimic vault path.
-    
+
     This function is called during pytest startup. It sets up the vault directory
     and applies mimicking to all functions specified in the configuration.
-    
+
     Args:
         config: The pytest configuration object
     """
@@ -379,59 +332,56 @@ def _initialize_mimic(config):
     sys.path.append(str(config.rootpath))
     # Apply mimicking to all functions from ini configuration
     for function_to_mimic in config.getini("mimic_functions"):
-        mimic_location(function_to_mimic)
+        _mimic(function_to_mimic)
 
 
-def _import_function_from_string(import_path) -> tuple[object, Callable]:
-    """Import a function from an import path string.
+def _import_function_from_string(import_path, classmethod_warning: bool) -> tuple[object, Callable]:
+    """Import a function and its parent from an import path string.
 
-    Format: module.submodule:function_name or module.submodule:Class_name.method_name
-    
     Args:
-        import_path: A string in the format "module.submodule:function_name" or
-                     "module.submodule:Class.method_name"
-                     
+        import_path: A string in the format "module.submodule.function_name" or
+                     "module.submodule.Class.method_name"
+
     Returns:
         A tuple containing:
         - The parent object (module or class) that contains the function
         - The function or method object
-        
+
     Raises:
         ImportError: If the function cannot be imported from the given path
         ValueError: If the import path format is invalid
     """
     try:
-        if ":" not in import_path:
+        callable_to_mimic = pkgutil.resolve_name(import_path)
+
+        if inspect.isclass(callable_to_mimic):
             raise ValueError(
-                f"Invalid import path format: {import_path}. Expected 'package.module:function'"
+                f"\nAttempting to mimic class {import_path}."
+                f"\npytest-mimic cannot mimic classes. Mimic its method(s) instead"
             )
 
-        module_path, func_name = import_path.strip().split(":", 1)
+        if len(callable_to_mimic.__qualname__.split(".")) == 1:
+            # callable is module-level function
+            return importlib.import_module(callable_to_mimic.__module__), callable_to_mimic
 
-        # Import the module
-        module = importlib.import_module(module_path)
+        if inspect.ismethod(callable_to_mimic):
+            if classmethod_warning:
+                warnings.warn(
+                    f"\nMimicking classmethod {import_path}.\n"
+                    f"Mimicking cannot check for class-level mutations caused"
+                    f" by calling this method.\n"
+                    f"If you're sure that this classmethod does not mutate its class"
+                    f" you can use\n"
+                    f"\tmimic(<your_classmethod>, classmethod_warning=False)\n"
+                    f"to suppress this warning.",
+                    stacklevel=2,
+                )
 
-        path = func_name.split(".")
-        return getattr_nested(module, path[:-1]), getattr_nested(module, path)
+        parent = pkgutil.resolve_name(
+            callable_to_mimic.__module__ + "." + callable_to_mimic.__qualname__.rsplit(".", 1)[0]
+        )
 
-    except (ImportError, AttributeError, ValueError) as e:
-        raise ImportError(f"Failed to import function from '{import_path}'") from e
+        return parent, callable_to_mimic
 
-
-def getattr_nested(base_obj, path: list[str]):
-    """Recursively get nested attributes from an object.
-    
-    Args:
-        base_obj: The base object to start from
-        path: A list of attribute names to follow
-        
-    Returns:
-        The attribute at the end of the path
-        
-    Raises:
-        AttributeError: If any attribute in the path doesn't exist
-    """
-    if len(path) == 0:
-        return base_obj
-    else:
-        return getattr(getattr_nested(base_obj, path[:-1]), path[-1])
+    except (ImportError, AttributeError, ValueError, TypeError) as e:
+        raise ImportError(f"Failed to import function from path '{import_path}'") from e

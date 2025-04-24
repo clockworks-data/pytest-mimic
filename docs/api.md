@@ -60,9 +60,9 @@ A list of functions to mimic globally (without needing to use the context manage
 ```toml
 [tool.pytest.ini_options]
 mimic_functions = [
-    "some_module:expensive_function",
-    "some_module:another_function",
-    "some_module.sub_module:SomeClass.method"
+    "some_module.expensive_function",
+    "some_module.another_function",
+    "some_module.sub_module.SomeClass.method"
 ]
 ```
 
@@ -71,9 +71,9 @@ mimic_functions = [
 ```ini
 [pytest]
 mimic_functions =
-    some_module:expensive_function
-    some_module:another_function
-    some_module.sub_module:SomeClass.method
+    some_module.expensive_function
+    some_module.another_function
+    some_module.sub_module.SomeClass.method
 ```
 
 ### mimic_vault_path

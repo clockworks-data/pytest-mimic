@@ -31,7 +31,7 @@ from api import get_user_data, process_user_data
 
 def test_process_user_data():
     # Mimic the API call function
-    with pytest_mimic.mimic(get_user_data):
+    with pytest_mimic.mimic('api.get_user_data'):
         result = process_user_data(user_id=123)
     
     # Assert on the processed result
@@ -73,7 +73,7 @@ from database import get_active_users, count_active_users
 
 def test_count_active_users():
     # Mimic the database query function
-    with pytest_mimic.mimic(get_active_users):
+    with pytest_mimic.mimic('database.get_active_users'):
         count = count_active_users()
     
     # Assert on the count
@@ -115,7 +115,7 @@ from async_api import fetch_data, process_multiple_endpoints
 @pytest.mark.asyncio
 async def test_process_multiple_endpoints():
     # Mimic the async fetch function
-    with pytest_mimic.mimic(fetch_data):
+    with pytest_mimic.mimic('async_api.fetch_data'):
         results = await process_multiple_endpoints()
     
     # Assert on the results
@@ -156,7 +156,7 @@ from data_processor import DataProcessor
 
 def test_process():
     # Mimic the class method
-    with pytest_mimic.mimic(DataProcessor.normalize_data):
+    with pytest_mimic.mimic('data_processor.DataProcessor.normalize_data'):
         processor = DataProcessor()
         result = processor.process({"Name": "John Doe ", "AGE": 30})
     
@@ -173,9 +173,9 @@ Using the global configuration to mimic functions:
 # pyproject.toml
 [tool.pytest.ini_options]
 mimic_functions = [
-    "myapp.api:get_user_data",
-    "myapp.database:get_active_users",
-    "myapp.data_processor:DataProcessor.normalize_data"
+    "myapp.api.get_user_data",
+    "myapp.database.get_active_users",
+    "myapp.data_processor.DataProcessor.normalize_data"
 ]
 ```
 

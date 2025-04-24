@@ -26,14 +26,14 @@ def test_mimic_across_runs(pytester):
 
         @pytest.mark.asyncio
         async def test_mimic_async_func():
-            with mimic(async_func_to_mimic):
+            with mimic('test_mimic_across_runs.async_func_to_mimic'):
 
                 result = await async_func_to_mimic(5, b=3)
 
             assert result['result'] == 8
 
         def test_mimic_sync_func():
-            with mimic(sync_func_to_mimic):
+            with mimic('test_mimic_across_runs.sync_func_to_mimic'):
 
                 result = sync_func_to_mimic(5, b=3)
 

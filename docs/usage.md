@@ -18,7 +18,7 @@ Wrap expensive function calls with the `mimic` context manager in your test:
 import pytest_mimic
 
 def test_my_function():
-    with pytest_mimic.mimic(expensive_function):
+    with pytest_mimic.mimic('module.sub_module.expensive_function'):
         result = function_that_calls_expensive_function()
     assert result == expected_result
 ```
@@ -52,9 +52,9 @@ Instead of adding the mimic context manager to each test, you can configure func
 ```toml
 [tool.pytest.ini_options]
 mimic_functions = [
-    "some_module:expensive_function",
-    "some_module:another_function", 
-    "some_module.sub_module:SomeClass.method"
+    "some_module.expensive_function",
+    "some_module.another_function", 
+    "some_module.sub_module.SomeClass.method"
 ]
 # Optional: specify custom location for mimic cache directory
 # mimic_vault_path = ".mimic_vault"
@@ -65,9 +65,9 @@ mimic_functions = [
 ```ini
 [pytest]
 mimic_functions =
-    some_module:expensive_function
-    some_module:another_function
-    some_module.sub_module:SomeClass.method
+    some_module.expensive_function
+    some_module.another_function
+    some_module.sub_module.SomeClass.method
 # Optional: specify custom location for mimic vault
 # mimic_vault_path = .mimic_vault
 ```
