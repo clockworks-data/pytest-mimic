@@ -14,16 +14,19 @@ def test_mimic_fails_on_non_string_paths():
 
 
 def test_mimic_classmethod():
-    with mimic("tests.example_module.ExampleClass.example_classmethod"):
-        with pytest.raises(RuntimeError, match="Missing mimic-recorded result for function call"):
-            ExampleClass.example_classmethod(5, b=3)
-        # Set record mode
-        os.environ["MIMIC_RECORD"] = "1"
-        result = ExampleClass.example_classmethod(5, b=3)
-        assert result == 8
+    with pytest.warns(UserWarning):
+        with mimic("tests.example_module.ExampleClass.example_classmethod"):
+            with pytest.raises(
+                RuntimeError, match="Missing mimic-recorded result for function call"
+            ):
+                ExampleClass.example_classmethod(5, b=3)
+            # Set record mode
+            os.environ["MIMIC_RECORD"] = "1"
+            result = ExampleClass.example_classmethod(5, b=3)
+            assert result == 8
 
-        os.environ["MIMIC_RECORD"] = "0"
-        assert ExampleClass.example_classmethod(5, b=3) == result
+            os.environ["MIMIC_RECORD"] = "0"
+            assert ExampleClass.example_classmethod(5, b=3) == result
 
 
 def test_mimic_staticmethod():
@@ -60,18 +63,24 @@ def test_mimic_mutable_method():
 
 
 def test_mimic_nested_classmethod():
-    with mimic(
-        "tests.example_module.ExampleClass.NestedClass.DoubleNestedClass.example_dnested_class"
-    ):
-        with pytest.raises(RuntimeError, match="Missing mimic-recorded result for function call"):
-            ExampleClass.NestedClass.DoubleNestedClass.example_dnested_class(5, b=3)
-        # Set record mode
-        os.environ["MIMIC_RECORD"] = "1"
-        result = ExampleClass.NestedClass.DoubleNestedClass.example_dnested_class(5, b=3)
-        assert result == 8
+    with pytest.warns(UserWarning):
+        with mimic(
+            "tests.example_module.ExampleClass.NestedClass.DoubleNestedClass.example_dnested_class"
+        ):
+            with pytest.raises(
+                RuntimeError, match="Missing mimic-recorded result for function call"
+            ):
+                ExampleClass.NestedClass.DoubleNestedClass.example_dnested_class(5, b=3)
+            # Set record mode
+            os.environ["MIMIC_RECORD"] = "1"
+            result = ExampleClass.NestedClass.DoubleNestedClass.example_dnested_class(5, b=3)
 
-        os.environ["MIMIC_RECORD"] = "0"
-        assert ExampleClass.NestedClass.DoubleNestedClass.example_dnested_class(5, b=3) == result
+            assert result == 8
+
+            os.environ["MIMIC_RECORD"] = "0"
+            assert (
+                ExampleClass.NestedClass.DoubleNestedClass.example_dnested_class(5, b=3) == result
+            )
 
 
 def test_mimic_nested_staticmethod():
