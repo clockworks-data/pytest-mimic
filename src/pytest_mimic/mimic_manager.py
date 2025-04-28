@@ -184,8 +184,8 @@ def _mimic(target, classmethod_warning: bool = True):
 def compute_hash(func: Callable, args: tuple, kwargs: dict) -> str:
     """Compute a deterministic hash for a function call.
 
-    This function creates a unique hash based on the function identity and its inputs.
-    The hash is used as a key to store and retrieve recorded function results.
+    This function creates a unique hash based on the function identity, its content,
+    and its inputs. The hash is used as a key to store and retrieve recorded function results.
 
     Args:
         func: The function being called
@@ -201,6 +201,14 @@ def compute_hash(func: Callable, args: tuple, kwargs: dict) -> str:
     module_name = inspect.getmodule(func).__name__
     func_name = func.__name__
     sha256.update(f"{module_name}.{func_name}".encode())
+
+    # Hash function content (source code)
+    try:
+        source = inspect.getsource(func)
+        sha256.update(source.encode())
+    except (TypeError, OSError):
+        # Fall back if we can't get the source
+        pass
 
     # Hash positional arguments using pickle
     for arg in args:
