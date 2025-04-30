@@ -48,10 +48,10 @@ pip install pytest-mimic
 
 For detailed documentation, visit [https://clockworks-data.github.io/pytest-mimic/](https://clockworks-data.github.io/pytest-mimic/) or check the `docs/` directory.
 
-- [Usage Guide](https://clockworks-data.github.io/pytest-mimic/usage/): Basic usage instructions
-- [Advanced Features](https://clockworks-data.github.io/pytest-mimic/advanced/): Working with class methods, async functions, and more
-- [API Reference](https://clockworks-data.github.io/pytest-mimic/api/): Complete API documentation
-- [Examples](https://clockworks-data.github.io/pytest-mimic/examples/): Example usage in different scenarios
+- [Usage Guide](https://github.com/clockworks-data/pytest-mimic/blob/main/docs/usage.md): Basic usage instructions
+- [Advanced Features](https://github.com/clockworks-data/pytest-mimic/blob/main/docs/advanced.md): Working with class methods, async functions, and more
+- [API Reference](https://github.com/clockworks-data/pytest-mimic/blob/main/docs/api.md): Complete API documentation
+- [Examples](https://github.com/clockworks-data/pytest-mimic/blob/main/docs/examples.md): Example usage in different scenarios
 
 ## Global Configuration
 
