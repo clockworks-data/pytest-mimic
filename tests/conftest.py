@@ -12,11 +12,11 @@ pytest_plugins = ["pytester"]
 @pytest.fixture(autouse=True)
 def tmp_mimic_vault():
     """Create a temporary directory for mimic recordings during tests.
-    
+
     This fixture creates a temporary directory to use as the mimic vault
     for each test, ensuring tests don't interfere with each other by
     sharing recordings.
-    
+
     Returns:
         Path: The path to the temporary mimic vault directory
     """
@@ -28,7 +28,7 @@ def tmp_mimic_vault():
 @pytest.fixture(autouse=True)
 def reset_record_mode():
     """Reset the mimic record mode before each test.
-    
+
     This fixture ensures that tests start with recording disabled
     unless they explicitly enable it, preventing accidental recording.
     """
