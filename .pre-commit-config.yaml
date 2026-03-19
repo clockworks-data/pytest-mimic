@@ -1,6 +1,6 @@
 repos:
 - repo: https://github.com/mpalmer/action-validator
-  rev: v0.5.1
+  rev: v0.8.0
   hooks:
     - id: action-validator
 - repo: https://github.com/astral-sh/uv-pre-commit

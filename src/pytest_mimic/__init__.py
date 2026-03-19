@@ -5,7 +5,7 @@ then replay those recordings in subsequent test runs for faster and more stable 
 
 Example:
     from pytest_mimic import mimic
-    
+
     def test_expensive_operation():
         with mimic(expensive_function):
             result = function_that_calls_expensive_function()
